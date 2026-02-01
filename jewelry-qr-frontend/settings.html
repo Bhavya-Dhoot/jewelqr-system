@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Settings and configuration for jewelry QR system">
+    <title>Settings | Jewelry QR System</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="css/design-system.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <style>
+        /* Diamond Pricing Table */
+        .diamond-pricing-table {
+            overflow-x: auto;
+        }
+
+        .pricing-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .pricing-table th {
+            text-align: left;
+            padding: var(--spacing-3) var(--spacing-4);
+            background: var(--color-gray-50);
+            font-size: var(--font-size-sm);
+            font-weight: var(--font-weight-semibold);
+            color: var(--color-gray-700);
+            border-bottom: var(--border-width-medium) solid var(--color-gray-200);
+        }
+
+        .pricing-table td {
+            padding: var(--spacing-3) var(--spacing-4);
+            border-bottom: var(--border-width-thin) solid var(--color-gray-200);
+        }
+
+        .pricing-table .category-name {
+            font-weight: var(--font-weight-semibold);
+            color: var(--color-gray-900);
+        }
+
+        .pricing-table .price-input {
+            width: 100%;
+            max-width: 150px;
+            padding: var(--spacing-2) var(--spacing-3);
+            border: var(--border-width-thin) solid var(--color-gray-300);
+            border-radius: var(--border-radius-md);
+            font-family: var(--font-monospace);
+            font-size: var(--font-size-sm);
+            text-align: right;
+        }
+
+        .pricing-table .price-input:focus {
+            outline: none;
+            border-color: var(--color-primary-gold);
+            box-shadow: var(--shadow-focus);
+        }
+
+        .pricing-table tr:hover {
+            background: var(--color-gray-50);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" class="logo-icon" aria-hidden="true">
+                <path d="M16 2L8 10L16 18L24 10L16 2Z" fill="currentColor" />
+                <path d="M16 14L8 22L16 30L24 22L16 14Z" fill="currentColor" opacity="0.6" />
+            </svg>
+            <span class="logo-text">JewelQR</span>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="index.html" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M3 10l7-7 7 7M5 8v8a1 1 0 001 1h8a1 1 0 001-1V8" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>Home</span>
+            </a>
+
+            <a href="dashboard.html" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <rect x="3" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2" />
+                    <rect x="11" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2" />
+                    <rect x="3" y="11" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2" />
+                    <rect x="11" y="11" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2" />
+                </svg>
+                <span>Dashboard</span>
+            </a>
+
+            <a href="create.html" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="2" />
+                    <path d="M7 7h6M7 10h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>Create Item</span>
+            </a>
+
+            <a href="scan.html" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="2" />
+                    <path d="M3 10h14M10 3v14" stroke="currentColor" stroke-width="2" />
+                </svg>
+                <span>Scan Item</span>
+            </a>
+
+            <a href="settings.html" class="nav-item active">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <circle cx="10" cy="10" r="2" stroke="currentColor" stroke-width="2" />
+                    <path
+                        d="M10 2v2m0 12v2M4.93 4.93l1.41 1.41m7.32 7.32l1.41 1.41M2 10h2m12 0h2M4.93 15.07l1.41-1.41m7.32-7.32l1.41-1.41"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>Settings</span>
+            </a>
+
+            <div style="flex: 1;"></div>
+
+            <button id="logoutBtn" class="nav-item"
+                style="border: none; background: none; width: 100%; text-align: left; cursor: pointer;">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M7 17H4a2 2 0 01-2-2V5a2 2 0 012-2h3M14 14l4-4-4-4M18 10H7" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>Logout</span>
+            </button>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="page-header">
+            <div>
+                <h1 class="h1">Settings</h1>
+                <p class="text-gray">Configure default rates and system preferences</p>
+            </div>
+        </header>
+
+        <!-- Diamond Pricing -->
+        <div class="card mb-6">
+            <div class="card-header">
+                <h2 class="card-title">Diamond Category Pricing</h2>
+                <p class="text-sm text-gray">Set Real (Natural) and CVD (Lab-grown) prices per carat for each category
+                </p>
+            </div>
+
+            <div class="diamond-pricing-table">
+                <table class="pricing-table">
+                    <thead>
+                        <tr>
+                            <th>Type ID</th>
+                            <th>Label</th>
+                            <th>Real (₹/ct)</th>
+                            <th>CVD (₹/ct)</th>
+                            <th>Active</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="diamondPricingBody">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+                <!-- Add New Type Form -->
+                <div class="add-type-form"
+                    style="margin-top: var(--spacing-4); padding: var(--spacing-4); background: var(--color-gray-50); border-radius: var(--border-radius-md);">
+                    <h4
+                        style="margin: 0 0 var(--spacing-3) 0; font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold);">
+                        Add New Diamond Type</h4>
+                    <div style="display: flex; gap: var(--spacing-3); flex-wrap: wrap; align-items: end;">
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 80px;">
+                            <label class="form-label" style="font-size: var(--font-size-xs);">Type ID</label>
+                            <input type="text" id="newTypeId" class="form-input" placeholder="e.g. emerald"
+                                style="font-size: var(--font-size-sm);">
+                        </div>
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 80px;">
+                            <label class="form-label" style="font-size: var(--font-size-xs);">Label</label>
+                            <input type="text" id="newTypeLabel" class="form-input" placeholder="e.g. Emerald Cut"
+                                style="font-size: var(--font-size-sm);">
+                        </div>
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 80px;">
+                            <label class="form-label" style="font-size: var(--font-size-xs);">Real Rate</label>
+                            <input type="number" id="newTypeRealRate" class="form-input" value="50000" min="0"
+                                step="100" style="font-size: var(--font-size-sm);">
+                        </div>
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 80px;">
+                            <label class="form-label" style="font-size: var(--font-size-xs);">CVD Rate</label>
+                            <input type="number" id="newTypeCvdRate" class="form-input" value="25000" min="0" step="100"
+                                style="font-size: var(--font-size-sm);">
+                        </div>
+                        <button type="button" id="addNewTypeBtn" class="btn btn-secondary" style="height: 38px;">+
+                            Add</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Jewelry Categories -->
+        <div class="card mb-6">
+            <div class="card-header">
+                <h2 class="card-title">Jewelry Categories</h2>
+                <p class="text-sm text-gray">Manage item categories and their SKU prefixes</p>
+            </div>
+
+            <div class="diamond-pricing-table">
+                <table class="pricing-table">
+                    <thead>
+                        <tr>
+                            <th>Category ID</th>
+                            <th>Name</th>
+                            <th>SKU Prefix</th>
+                            <th>Active</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="categoriesBody">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+                <!-- Add New Category Form -->
+                <div class="add-type-form"
+                    style="margin-top: var(--spacing-4); padding: var(--spacing-4); background: var(--color-gray-50); border-radius: var(--border-radius-md);">
+                    <h4
+                        style="margin: 0 0 var(--spacing-3) 0; font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold);">
+                        Add New Category</h4>
+                    <div style="display: flex; gap: var(--spacing-3); flex-wrap: wrap; align-items: end;">
+                        <div class="form-group" style="margin: 0; flex: 2; min-width: 120px;">
+                            <label class="form-label" style="font-size: var(--font-size-xs);">Name</label>
+                            <input type="text" id="newCategoryName" class="form-input" placeholder="e.g. Bracelet"
+                                style="font-size: var(--font-size-sm);">
+                        </div>
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 80px;">
+                            <label class="form-label" style="font-size: var(--font-size-xs);">Prefix (3 letters)</label>
+                            <input type="text" id="newCategoryPrefix" class="form-input" placeholder="e.g. BRC"
+                                maxlength="3" style="font-size: var(--font-size-sm); text-transform: uppercase;">
+                        </div>
+                        <button type="button" id="addNewCategoryBtn" class="btn btn-secondary" style="height: 38px;">+
+                            Add</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Polki/Stone Pricing REMOVED - Legacy support only -->
+
+        <!-- Default Rates -->
+        <div class="card mb-6">
+            <div class="card-header">
+                <h2 class="card-title">Default Rates</h2>
+                <p class="text-sm text-gray">These rates will be pre-filled in the SCAN page calculator</p>
+            </div>
+
+            <div class="settings-grid">
+                <div class="form-group">
+                    <label for="defaultGoldRate" class="form-label">Default Gold Rate (per gram)</label>
+                    <div class="input-with-unit">
+                        <span class="currency-symbol">₹</span>
+                        <input type="number" id="defaultGoldRate" class="form-input with-currency" value="6500" min="0"
+                            step="0.01">
+                    </div>
+                    <span class="form-helper">Current market rate for gold</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="defaultLabourRate" class="form-label">Default Labour Rate (per gram)</label>
+                    <div class="input-with-unit">
+                        <span class="currency-symbol">₹</span>
+                        <input type="number" id="defaultLabourRate" class="form-input with-currency" value="500" min="0"
+                            step="0.01">
+                    </div>
+                    <span class="form-helper">Labour Cost = Rate × Gold Weight</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="defaultTax" class="form-label">Default Tax (%)</label>
+                    <input type="number" id="defaultTax" class="form-input" value="3" min="0" max="100" step="0.01">
+                    <span class="form-helper">GST or tax percentage</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SKU Configuration -->
+        <div class="card mb-6">
+            <div class="card-header">
+                <h2 class="card-title">SKU Configuration</h2>
+                <p class="text-sm text-gray">Customize SKU generation prefixes</p>
+            </div>
+
+            <div class="settings-grid">
+                <div class="form-group">
+                    <label for="ringPrefix" class="form-label">Ring Prefix</label>
+                    <input type="text" id="ringPrefix" class="form-input" value="RING" maxlength="10">
+                </div>
+
+                <div class="form-group">
+                    <label for="necklacePrefix" class="form-label">Necklace Prefix</label>
+                    <input type="text" id="necklacePrefix" class="form-input" value="NECK" maxlength="10">
+                </div>
+
+                <div class="form-group">
+                    <label for="earringPrefix" class="form-label">Earring Prefix</label>
+                    <input type="text" id="earringPrefix" class="form-input" value="EAR" maxlength="10">
+                </div>
+
+                <div class="form-group">
+                    <label for="braceletPrefix" class="form-label">Bracelet Prefix</label>
+                    <input type="text" id="braceletPrefix" class="form-input" value="BRAC" maxlength="10">
+                </div>
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="flex justify-end gap-3">
+            <button class="btn btn-secondary" id="resetSettings">Reset to Defaults</button>
+            <button class="btn btn-primary" id="saveSettings">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M15 7L8 14l-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                Save Settings
+            </button>
+        </div>
+    </main>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/components.js"></script>
+    <script src="js/profiler.js"></script>
+    <script>
+        // Protect this page - requires authentication AND admin role
+        (function () {
+            if (!auth.isAuthenticated()) {
+                sessionStorage.setItem('redirect_after_login', window.location.href);
+                window.location.href = 'login.html';
+                return; // Stop execution
+            }
+
+            // Settings is admin-only
+            const currentUser = auth.getCurrentUser();
+            if (!currentUser || currentUser.role !== 'admin') {
+                window.location.href = 'restricted.html';
+                return; // Stop execution
+            }
+
+            // Logout button
+            document.getElementById('logoutBtn').addEventListener('click', auth.logout);
+        })();
+
+        /**
+         * Delete diamond type (blocked if items exist)
+         */
+        async function deleteDiamondType(typeId, label) {
+            try {
+                // First check if any items are using this type
+                const usageResult = await api.checkDiamondTypeUsage(typeId);
+
+                if (usageResult.success && usageResult.data.inUse) {
+                    const count = usageResult.data.itemCount;
+                    showToast(
+                        `Cannot delete "${label}": ${count} item(s) are using this type. Remove or update those items first.`,
+                        'error'
+                    );
+                    return;
+                }
+
+                // No items using it - confirm and delete
+                if (!confirm(`Delete diamond type "${label}"?`)) return;
+
+                const result = await api.removeDiamondType(typeId);
+                if (result.success) {
+                    // Remove from local config and re-render
+                    const currentPricing = config.getDiamondPricing();
+                    delete currentPricing[typeId];
+                    const cfg = config.getConfig();
+                    cfg.diamondPricing = currentPricing;
+                    localStorage.setItem('jewelqr_config', JSON.stringify(cfg));
+                    localStorage.setItem('jewelqr_config_cache_time', Date.now().toString());
+                    renderDiamondPricing();
+                    showToast(`Diamond type "${label}" deleted`, 'success');
+                } else {
+                    showToast(result.message || 'Failed to delete diamond type', 'error');
+                }
+            } catch (error) {
+                console.error('Delete diamond type error:', error);
+                showToast('Failed to delete: ' + error.message, 'error');
+            }
+        }
+
+        /**
+         * Render jewelry categories table (mirrors diamond types UI exactly)
+         */
+        function renderCategories() {
+            const tbody = document.getElementById('categoriesBody');
+            const categories = config.getJewelryCategories();
+
+            tbody.innerHTML = categories.map(cat => {
+                const isActive = cat.isActive !== false; // Default to true if undefined
+                const activeClass = isActive ? '' : 'style="opacity: 0.5;"';
+                return `
+                    <tr ${activeClass}>
+                        <td><code style="font-size: var(--font-size-xs); background: var(--color-gray-100); padding: 2px 6px; border-radius: 4px;">${cat.id}</code></td>
+                        <td>${cat.name}</td>
+                        <td><code style="font-size: var(--font-size-xs); background: var(--color-primary-light); color: var(--color-primary); padding: 2px 6px; border-radius: 4px;">${cat.prefix}</code></td>
+                        <td style="text-align: center;">
+                            <input type="checkbox" id="cat_active_${cat.id}" ${isActive ? 'checked' : ''} 
+                                   onchange="toggleCategoryActive('${cat.id}', this.checked)"
+                                   style="width: 18px; height: 18px; cursor: pointer;">
+                        </td>
+                        <td style="text-align: center;">
+                            <button type="button" class="btn-delete" onclick="deleteCategory('${cat.id}', '${cat.name}')" 
+                                    style="background: none; border: none; color: var(--color-error); cursor: pointer; padding: 4px;" 
+                                    title="Delete ${cat.name}">
+                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                                    <path d="M5 6h10M8 6V4h4v2m-6 0v10h8V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        /**
+         * Toggle category active status (mirrors diamond types)
+         */
+        async function toggleCategoryActive(categoryId, isActive) {
+            try {
+                const result = await api.updateCategory(categoryId, { isActive });
+                if (result.success) {
+                    // Refresh config and re-render
+                    await config.refreshConfig();
+                    renderCategories();
+                    showToast(`Category ${isActive ? 'activated' : 'deactivated'}`, 'success');
+                } else {
+                    showToast(result.message || 'Failed to update category', 'error');
+                    // Revert checkbox
+                    document.getElementById(`cat_active_${categoryId}`).checked = !isActive;
+                }
+            } catch (error) {
+                console.error('Toggle category error:', error);
+                showToast('Failed to update: ' + error.message, 'error');
+                // Revert checkbox
+                document.getElementById(`cat_active_${categoryId}`).checked = !isActive;
+            }
+        }
+
+        /**
+         * Delete category (blocked if items exist)
+         */
+        async function deleteCategory(categoryId, name) {
+            try {
+                // Check usage first
+                const usageResult = await api.checkCategoryUsage(categoryId);
+
+                if (usageResult.success && usageResult.data.inUse) {
+                    const count = usageResult.data.itemCount;
+                    showToast(`Cannot delete "${name}": ${count} item(s) are using this category. Remove or update those items first.`, 'error');
+                    return;
+                }
+
+                // Confirm deletion
+                if (!confirm(`Delete category "${name}"? This cannot be undone.`)) {
+                    return;
+                }
+
+                // Delete via API
+                const result = await api.removeCategory(categoryId);
+                if (result.success) {
+                    // Refresh config and re-render
+                    await config.refreshConfig();
+                    renderCategories();
+                    showToast(`Category "${name}" deleted`, 'success');
+                } else {
+                    showToast(result.message || 'Failed to delete category', 'error');
+                }
+            } catch (error) {
+                console.error('Delete category error:', error);
+                showToast('Failed to delete: ' + error.message, 'error');
+            }
+        }
+
+        /**
+         * Add new category via API
+         */
+        document.getElementById('addNewCategoryBtn').addEventListener('click', async () => {
+            const name = document.getElementById('newCategoryName').value.trim();
+            const prefix = document.getElementById('newCategoryPrefix').value.trim().toUpperCase();
+
+            if (!name) {
+                showToast('Please enter a category name', 'error');
+                return;
+            }
+            if (!prefix || prefix.length < 2 || prefix.length > 3) {
+                showToast('Prefix must be 2-3 letters', 'error');
+                return;
+            }
+
+            try {
+                const result = await api.addCategory(name, prefix);
+                if (result.success) {
+                    // Refresh config and re-render
+                    await config.refreshConfig();
+                    renderCategories();
+
+                    // Clear form
+                    document.getElementById('newCategoryName').value = '';
+                    document.getElementById('newCategoryPrefix').value = '';
+
+                    showToast(`Category "${name}" added!`, 'success');
+                } else {
+                    showToast(result.message || 'Failed to add category', 'error');
+                }
+            } catch (error) {
+                console.error('Add category error:', error);
+                showToast('Failed to add: ' + error.message, 'error');
+            }
+        });
+
+        /**
+         * Render diamond pricing table (dynamic from config)
+         */
+        function renderDiamondPricing() {
+            const tbody = document.getElementById('diamondPricingBody');
+            const pricing = config.getDiamondPricing();
+
+            tbody.innerHTML = Object.keys(pricing).map(typeId => {
+                const data = pricing[typeId];
+                const label = data.label || data.name || typeId;
+                const realRate = data.realRate || 50000;
+                const cvdRate = data.cvdRate || 25000;
+                const isActive = data.isActive !== false;
+                return `
+                    <tr>
+                        <td><code style="font-size: var(--font-size-xs); background: var(--color-gray-100); padding: 2px 6px; border-radius: 4px;">${typeId}</code></td>
+                        <td>
+                            <input type="text" class="price-input" 
+                                   id="label_${typeId}" 
+                                   value="${label}" 
+                                   style="max-width: 100px;">
+                        </td>
+                        <td>
+                            <input type="number" class="price-input" 
+                                   id="real_${typeId}" 
+                                   value="${realRate}" 
+                                   min="0" step="100">
+                        </td>
+                        <td>
+                            <input type="number" class="price-input" 
+                                   id="cvd_${typeId}" 
+                                   value="${cvdRate}" 
+                                   min="0" step="100">
+                        </td>
+                        <td style="text-align: center;">
+                            <input type="checkbox" id="active_${typeId}" ${isActive ? 'checked' : ''}>
+                        </td>
+                        <td style="text-align: center;">
+                            <button type="button" class="btn-delete" onclick="deleteDiamondType('${typeId}', '${label}')" 
+                                    style="background: none; border: none; color: var(--color-error); cursor: pointer; padding: 4px;" 
+                                    title="Delete ${label}">
+                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                                    <path d="M5 6h10M8 6V4h4v2m-6 0v10h8V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        /**
+         * Collect diamond pricing from table (dynamic)
+         */
+        function collectDiamondPricing() {
+            const pricing = {};
+            const currentPricing = config.getDiamondPricing();
+            Object.keys(currentPricing).forEach(typeId => {
+                const labelInput = document.getElementById(`label_${typeId}`);
+                const realInput = document.getElementById(`real_${typeId}`);
+                const cvdInput = document.getElementById(`cvd_${typeId}`);
+                const activeInput = document.getElementById(`active_${typeId}`);
+                if (realInput && cvdInput) {
+                    pricing[typeId] = {
+                        label: labelInput ? labelInput.value : currentPricing[typeId].label,
+                        realRate: parseFloat(realInput.value) || 0,
+                        cvdRate: parseFloat(cvdInput.value) || 0,
+                        isActive: activeInput ? activeInput.checked : true
+                    };
+                }
+            });
+            return pricing;
+        }
+
+        // collectPolkiPricing removed - polki support deprecated
+
+        /**
+         * Add new diamond type via API
+         */
+        document.getElementById('addNewTypeBtn').addEventListener('click', async () => {
+            const typeId = document.getElementById('newTypeId').value.trim().toLowerCase().replace(/\s+/g, '_');
+            const label = document.getElementById('newTypeLabel').value.trim();
+            const realRate = parseFloat(document.getElementById('newTypeRealRate').value) || 50000;
+            const cvdRate = parseFloat(document.getElementById('newTypeCvdRate').value) || 25000;
+
+            if (!typeId) {
+                showToast('Type ID is required', 'error');
+                return;
+            }
+            if (!label) {
+                showToast('Label is required', 'error');
+                return;
+            }
+
+            // Check if already exists locally
+            const currentPricing = config.getDiamondPricing();
+            if (currentPricing[typeId]) {
+                showToast(`Type '${typeId}' already exists`, 'error');
+                return;
+            }
+
+            try {
+                // Call backend API to persist
+                const result = await api.addDiamondType(typeId, label, realRate, cvdRate);
+
+                if (result.success) {
+                    // Refresh config from backend and re-render
+                    await config.refreshConfig();
+                    renderDiamondPricing();
+
+                    // Clear form
+                    document.getElementById('newTypeId').value = '';
+                    document.getElementById('newTypeLabel').value = '';
+                    document.getElementById('newTypeRealRate').value = '50000';
+                    document.getElementById('newTypeCvdRate').value = '25000';
+
+                    showToast(`Diamond type '${label}' added!`, 'success');
+                } else {
+                    showToast(result.message || 'Failed to add diamond type', 'error');
+                }
+            } catch (error) {
+                console.error('Add diamond type error:', error);
+                showToast('Failed to add: ' + error.message, 'error');
+            }
+        });
+
+        /**
+         * Save settings
+         */
+        document.getElementById('saveSettings').addEventListener('click', async () => {
+            const saveBtn = document.getElementById('saveSettings');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            try {
+                // Collect rates (use explicit null check to allow 0 values)
+                const goldVal = parseFloat(document.getElementById('defaultGoldRate').value);
+                const labourVal = parseFloat(document.getElementById('defaultLabourRate').value);
+                const taxVal = parseFloat(document.getElementById('defaultTax').value);
+
+                const rates = {
+                    goldRate: isNaN(goldVal) ? 6500 : goldVal,
+                    labourRate: isNaN(labourVal) ? 500 : labourVal,
+                    taxPercent: isNaN(taxVal) ? 3 : taxVal
+                };
+
+                // Collect pricing (polki removed)
+                const diamondPricing = collectDiamondPricing();
+
+                // Save all settings in ONE API call (instant update)
+                const success = await config.saveAllSettings({
+                    rates,
+                    diamondPricing
+                });
+
+                if (success) {
+                    showToast('Settings saved successfully! New rates are now active.', 'success');
+                } else {
+                    showToast('Settings saved locally only (API unavailable)', 'warning');
+                }
+            } catch (error) {
+                console.error('Save error:', error);
+                showToast('Failed to save settings: ' + error.message, 'error');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <path d="M15 7L8 14l-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                    Save Settings
+                `;
+            }
+        });
+
+        /**
+         * Reset settings (only resets VALUES, keeps user-created types)
+         */
+        document.getElementById('resetSettings').addEventListener('click', () => {
+            if (confirm('Reset all rate values to defaults? (Your custom diamond types will be preserved)')) {
+                // Reset rates
+                document.getElementById('defaultGoldRate').value = config.DEFAULT_RATES.goldRate || 6500;
+                document.getElementById('defaultLabourRate').value = config.DEFAULT_RATES.labourRate || 500;
+                document.getElementById('defaultTax').value = config.DEFAULT_RATES.taxPercent || 3;
+
+                // Reset diamond pricing values (keep existing types, just reset rates)
+                const currentPricing = config.getDiamondPricing();
+                const defaultPricing = config.DEFAULT_DIAMOND_PRICING;
+                Object.keys(currentPricing).forEach(typeId => {
+                    const defaults = defaultPricing[typeId] || { realRate: 50000, cvdRate: 25000 };
+                    const realInput = document.getElementById(`real_${typeId}`);
+                    const cvdInput = document.getElementById(`cvd_${typeId}`);
+                    const activeInput = document.getElementById(`active_${typeId}`);
+                    if (realInput) realInput.value = defaults.realRate || 50000;
+                    if (cvdInput) cvdInput.value = defaults.cvdRate || 25000;
+                    if (activeInput) activeInput.checked = true;
+                });
+
+
+
+                showToast('Rate values reset to defaults (custom types preserved)', 'info');
+            }
+        });
+
+        /**
+         * Load saved rates on page load
+         */
+        function loadSavedRates() {
+            const rates = config.getDefaultRates();
+            // Use explicit check to preserve 0 values
+            document.getElementById('defaultGoldRate').value = rates.goldRate ?? 6500;
+            document.getElementById('defaultLabourRate').value = rates.labourRate ?? 500;
+            document.getElementById('defaultTax').value = rates.taxPercent ?? 3;
+        }
+
+        // Initialize (polki removed)
+        renderDiamondPricing();
+        renderCategories();
+        loadSavedRates();
+    </script>
+</body>
+
+</html>

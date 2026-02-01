@@ -1,0 +1,139 @@
+# JewelQR Production Docker Compose
+# Complete stack: Nginx, Backend, MongoDB, Backup
+
+version: '3.8'
+
+services:
+  # Nginx Reverse Proxy (HTTPS Termination)
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: jewelqr-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./jewelry-qr-frontend:/var/www/frontend:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - backend
+    networks:
+      - jewelqr-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Node.js Backend API
+  backend:
+    build:
+      context: ./jewelry-qr-backend
+      dockerfile: Dockerfile
+    container_name: jewelqr-backend
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=production
+      - MONGO_URI=mongodb://mongo:27017/jewelqr
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - PORT=3000
+    volumes:
+      - ./jewelry-qr-backend/uploads:/app/uploads
+      - backend_logs:/app/logs
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - jewelqr-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MongoDB Database
+  mongo:
+    image: mongo:7.0
+    container_name: jewelqr-mongo
+    restart: unless-stopped
+    # NOT exposed to host - internal only
+    expose:
+      - "27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USER:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+      - MONGO_INITDB_DATABASE=jewelqr
+    volumes:
+      - mongo_data:/data/db
+      - mongo_config:/data/configdb
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - jewelqr-network
+    command: ["mongod", "--auth", "--bind_ip_all"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Backup Service (Daily mongodump)
+  backup:
+    image: mongo:7.0
+    container_name: jewelqr-backup
+    restart: unless-stopped
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup.sh:/backup.sh:ro
+    environment:
+      - MONGO_HOST=mongo
+      - MONGO_PORT=27017
+      - MONGO_DB=jewelqr
+      - MONGO_USER=${MONGO_ROOT_USER:-admin}
+      - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
+      - BACKUP_RETENTION_DAYS=30
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - jewelqr-network
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        apt-get update && apt-get install -y cron
+        chmod +x /backup.sh
+        echo "0 2 * * * /backup.sh >> /var/log/backup.log 2>&1" | crontab -
+        cron -f
+
+  # Certbot for Let's Encrypt (optional, run manually)
+  certbot:
+    image: certbot/certbot:latest
+    container_name: jewelqr-certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    profiles:
+      - certbot
+
+networks:
+  jewelqr-network:
+    driver: bridge
+    internal: false
+
+volumes:
+  mongo_data:
+    driver: local
+  mongo_config:
+    driver: local
+  nginx_logs:
+    driver: local
+  backend_logs:
+    driver: local

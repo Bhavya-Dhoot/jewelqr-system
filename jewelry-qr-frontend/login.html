@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Login to Jewelry QR System">
+    <title>Login | Jewelry QR System</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="css/design-system.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/login.css">
+</head>
+
+<body class="login-body">
+    <main class="login-main">
+        <div class="login-card">
+            <!-- Logo -->
+            <div class="login-header">
+                <div class="login-logo">
+                    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+                        <path d="M24 4L12 16L24 28L36 16L24 4Z" fill="currentColor" />
+                        <path d="M24 20L12 32L24 44L36 32L24 20Z" fill="currentColor" opacity="0.6" />
+                    </svg>
+                </div>
+                <h1 class="login-title">JewelQR</h1>
+                <p class="login-subtitle">Sign in to access dashboard and create items</p>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm" class="login-form" novalidate>
+                <div class="form-group">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" id="username" class="form-input" placeholder="Enter username" required
+                        autocomplete="username">
+                    <span class="form-error hidden" id="usernameError">Please enter your username</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" id="password" class="form-input" placeholder="Enter password" required
+                        autocomplete="current-password">
+                    <span class="form-error hidden" id="passwordError">Please enter your password</span>
+                </div>
+
+                <div id="loginError" class="login-error hidden">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="2" />
+                        <path d="M10 6v4m0 4h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                    <span id="loginErrorMessage">Invalid username or password</span>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-full btn-lg" id="loginBtn">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <path d="M14 6a4 4 0 11-8 0 4 4 0 018 0zM4 16a8 8 0 0116 0" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                    Sign In
+                </button>
+            </form>
+
+            <!-- Demo Credentials -->
+            <div class="demo-credentials">
+                <p class="demo-title">Demo Credentials</p>
+                <div class="demo-users">
+                    <button type="button" class="demo-user" data-username="admin" data-password="admin123">
+                        <span class="demo-role">Admin</span>
+                        <span class="demo-creds">admin / admin123</span>
+                    </button>
+                    <button type="button" class="demo-user" data-username="staff" data-password="staff123">
+                        <span class="demo-role">Staff</span>
+                        <span class="demo-creds">staff / staff123</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Footer Links -->
+            <div class="login-footer">
+                <a href="scan.html" class="login-link">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                        <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5" />
+                        <path d="M2 8h12M8 2v12" stroke="currentColor" stroke-width="1.5" />
+                    </svg>
+                    Scan QR (No login required)
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        // Redirect if already logged in
+        if (auth.isAuthenticated()) {
+            window.location.href = auth.getRedirectUrl();
+        }
+
+        // Form elements
+        const form = document.getElementById('loginForm');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const loginError = document.getElementById('loginError');
+        const loginErrorMessage = document.getElementById('loginErrorMessage');
+        const loginBtn = document.getElementById('loginBtn');
+
+        // Demo credential buttons
+        document.querySelectorAll('.demo-user').forEach(btn => {
+            btn.addEventListener('click', () => {
+                usernameInput.value = btn.dataset.username;
+                passwordInput.value = btn.dataset.password;
+                loginError.classList.add('hidden');
+            });
+        });
+
+        // Form submission
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value.trim();
+
+            // Validation
+            let isValid = true;
+
+            if (!username) {
+                document.getElementById('usernameError').classList.remove('hidden');
+                usernameInput.classList.add('error');
+                isValid = false;
+            } else {
+                document.getElementById('usernameError').classList.add('hidden');
+                usernameInput.classList.remove('error');
+            }
+
+            if (!password) {
+                document.getElementById('passwordError').classList.remove('hidden');
+                passwordInput.classList.add('error');
+                isValid = false;
+            } else {
+                document.getElementById('passwordError').classList.add('hidden');
+                passwordInput.classList.remove('error');
+            }
+
+            if (!isValid) return;
+
+            // Attempt login
+            loginBtn.classList.add('loading');
+
+            // Call async login function
+            auth.login(username, password).then(result => {
+                loginBtn.classList.remove('loading');
+
+                if (result.success) {
+                    window.location.href = auth.getRedirectUrl();
+                } else {
+                    loginError.classList.remove('hidden');
+                    loginErrorMessage.textContent = result.message;
+                    passwordInput.value = '';
+                    passwordInput.focus();
+                }
+            }).catch(error => {
+                loginBtn.classList.remove('loading');
+                loginError.classList.remove('hidden');
+                loginErrorMessage.textContent = 'Login failed: ' + error.message;
+            });
+        });
+
+        // Clear errors on input
+        usernameInput.addEventListener('input', () => {
+            document.getElementById('usernameError').classList.add('hidden');
+            usernameInput.classList.remove('error');
+            loginError.classList.add('hidden');
+        });
+
+        passwordInput.addEventListener('input', () => {
+            document.getElementById('passwordError').classList.add('hidden');
+            passwordInput.classList.remove('error');
+            loginError.classList.add('hidden');
+        });
+    </script>
+</body>
+
+</html>

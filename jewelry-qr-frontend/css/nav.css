@@ -1,0 +1,214 @@
+/**
+ * Global Navigation Styles
+ * Shared navigation component used across all pages
+ */
+
+/* ================================================
+   TOP NAVIGATION BAR
+   ================================================ */
+
+.nav-bar {
+    background: white;
+    border-bottom: var(--border-width-thin) solid var(--color-gray-200);
+    box-shadow: var(--shadow-sm);
+    position: sticky;
+    top: 0;
+    z-index: var(--z-sticky);
+}
+
+.nav-container {
+    max-width: var(--max-width-2xl);
+    margin: 0 auto;
+    padding: 0 var(--spacing-6);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+}
+
+/* Logo */
+.nav-logo {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    text-decoration: none;
+    color: inherit;
+}
+
+.nav-logo svg {
+    width: 32px;
+    height: 32px;
+    color: var(--color-primary-gold);
+}
+
+.nav-logo-text {
+    font-size: var(--font-size-h3);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-navy);
+}
+
+/* Main Navigation Links */
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    padding: var(--spacing-2) var(--spacing-4);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-gray-700);
+    text-decoration: none;
+    border-radius: var(--border-radius-md);
+    transition: all var(--transition-base);
+}
+
+.nav-link:hover {
+    background: var(--color-gray-100);
+    color: var(--color-navy);
+}
+
+.nav-link.active {
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, rgba(212, 175, 55, 0.05) 100%);
+    color: var(--color-primary-gold);
+}
+
+.nav-link svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+/* Right Section - Auth */
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-4);
+}
+
+.nav-user {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-gray-700);
+    padding: var(--spacing-2) var(--spacing-3);
+    background: var(--color-gray-100);
+    border-radius: var(--border-radius-full);
+}
+
+.nav-auth-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    padding: var(--spacing-2) var(--spacing-4);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-navy);
+    background: white;
+    border: var(--border-width-thin) solid var(--color-gray-300);
+    border-radius: var(--border-radius-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
+}
+
+.nav-auth-btn:hover {
+    border-color: var(--color-navy);
+    background: var(--color-gray-50);
+}
+
+.nav-auth-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* Mobile Menu Toggle */
+.nav-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--color-navy);
+    cursor: pointer;
+    border-radius: var(--border-radius-md);
+    transition: background var(--transition-fast);
+}
+
+.nav-toggle:hover {
+    background: var(--color-gray-100);
+}
+
+.nav-toggle svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* Mobile Menu */
+.nav-mobile {
+    display: none;
+    position: fixed;
+    top: 64px;
+    left: 0;
+    right: 0;
+    background: white;
+    border-bottom: var(--border-width-thin) solid var(--color-gray-200);
+    box-shadow: var(--shadow-lg);
+    padding: var(--spacing-4);
+    z-index: var(--z-dropdown);
+}
+
+.nav-mobile.open {
+    display: block;
+}
+
+.nav-mobile .nav-link {
+    width: 100%;
+    justify-content: flex-start;
+    padding: var(--spacing-3) var(--spacing-4);
+}
+
+.nav-mobile-divider {
+    height: var(--border-width-thin);
+    background: var(--color-gray-200);
+    margin: var(--spacing-3) 0;
+}
+
+/* ================================================
+   RESPONSIVE
+   ================================================ */
+
+@media (max-width: 768px) {
+    .nav-container {
+        padding: 0 var(--spacing-4);
+    }
+
+    .nav-links,
+    .nav-right {
+        display: none;
+    }
+
+    .nav-toggle {
+        display: flex;
+    }
+
+    .nav-mobile .nav-right {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-3);
+    }
+
+    .nav-mobile .nav-user {
+        text-align: center;
+    }
+
+    .nav-mobile .nav-auth-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
