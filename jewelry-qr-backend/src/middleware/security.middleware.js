@@ -73,17 +73,10 @@ const createRateLimiter = (options) => {
             message: options.message || 'Too many requests, please try again later.'
         },
         standardHeaders: true,
-        legacyHeaders: false,
-        skip: (req) => {
-            // Skip rate limiting for health checks
-            return req.path === '/api/health';
-        },
-        keyGenerator: (req) => {
-            // Use X-Forwarded-For if behind proxy
-            return req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-        }
+        legacyHeaders: false
     });
 };
+
 
 // Pre-configured rate limiters
 const rateLimiters = {

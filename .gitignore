@@ -1,26 +1,14 @@
 # Dependencies
 node_modules/
 
-# Environment files (CRITICAL - never commit real secrets)
+# Environment (never commit real secrets)
 .env
 .env.local
 .env.*.local
-*.env
-
-# SSL certificates
-ssl/
-*.pem
-*.key
-*.crt
-*.csr
-
-# Backups
-backups/
 
 # Logs
 logs/
 *.log
-npm-debug.log*
 
 # Build output
 dist/
@@ -36,9 +24,6 @@ Thumbs.db
 *.swp
 *.swo
 
-# Uploads (optional - may want to keep)
-# jewelry-qr-backend/uploads/
-
 # Docker volumes
 mongo_data/
 
@@ -47,6 +32,5 @@ coverage/
 
 # Temporary files
 *.tmp
-*.temp
 tmp/
 temp/
