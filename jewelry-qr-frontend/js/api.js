@@ -4,9 +4,16 @@
  * Manages JWT token storage and automatic auth headers
  */
 
-// Detect if running in development (different ports) or production (same origin)
-const isDev = window.location.port === '8000' || window.location.port === '8080';
-const API_BASE = isDev ? 'http://localhost:3000/api' : '/api';
+// Detect environment and build API base URL
+const port = window.location.port;
+const proto = window.location.protocol;
+const host = window.location.hostname;
+const isDev = port === '8000' || port === '8080';
+// Tailscale serve: HTTPS on default port 443 (port is '') but backend is on :3000
+const isTailscale = proto === 'https:' && !port && host.endsWith('.ts.net');
+const API_BASE = isDev ? `${proto}//${host}:3000/api`
+    : isTailscale ? `https://${host}:3000/api`
+        : '/api';
 const TOKEN_KEY = 'jewelqr_jwt';
 
 // PERF: Request deduplication - prevents concurrent identical GET requests

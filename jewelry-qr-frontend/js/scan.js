@@ -141,8 +141,10 @@ async function onScanSuccess(decodedText, decodedResult) {
     // Stop scanning
     html5QrCode.stop();
 
-    // Hide camera section
-    document.getElementById('cameraSection').style.height = '120px';
+    // Collapse camera section and hide overlay
+    const cameraEl = document.getElementById('cameraSection');
+    cameraEl.style.height = '120px';
+    cameraEl.classList.add('camera-collapsed');
 
     try {
         let sku;
@@ -175,7 +177,9 @@ async function onScanSuccess(decodedText, decodedResult) {
         showErrorModal();
         // Restart camera after delay
         setTimeout(() => {
-            document.getElementById('cameraSection').style.height = '400px';
+            const cam = document.getElementById('cameraSection');
+            cam.style.height = '400px';
+            cam.classList.remove('camera-collapsed');
             startCamera();
         }, 2000);
     }
@@ -202,12 +206,20 @@ async function fetchAndDisplayItem(sku) {
         // Display item composition
         displayComposition(currentItemData);
 
+        // Display images immediately (don't wait for price calc)
+        displayBreakdownImages(currentItemData);
+
         // Show relevant sections
         document.getElementById('compositionCard').classList.remove('hidden');
         document.getElementById('pricePanel').classList.remove('hidden');
+        document.getElementById('breakdownCard').classList.remove('hidden');
 
         // Auto-fill rates from config and calculate immediately
-        await autoFillRatesAndCalculate();
+        try {
+            await autoFillRatesAndCalculate();
+        } catch (calcErr) {
+            console.warn('[Scan] Auto-calc failed (config not loaded?), images still shown:', calcErr.message);
+        }
     } else {
         throw new Error(response.message || 'Item not found');
     }
@@ -353,17 +365,24 @@ function calculatePriceWithRates(goldRate, labourRate, taxPercent, showSuccessTo
     const goldPurity = currentItemData.purity || '22K';
 
     // Get purity factor from config (24K=1.0, 22K=0.92, 18K=0.76, 14K=0.60)
-    const purityFactor = config.getPurityFactor(goldPurity);
+    const defaultPurityMap = { '24K': 1.0, '22K': 0.9167, '18K': 0.75, '14K': 0.585 };
+    let purityFactor, diamondPricing, polkiPricing;
+    try {
+        purityFactor = config.getPurityFactor(goldPurity);
+        diamondPricing = config.getDiamondPricing();
+        polkiPricing = config.getPolkiPricing();
+    } catch (e) {
+        console.warn('[Price] Config not available, using fallback values:', e.message);
+        purityFactor = defaultPurityMap[goldPurity] || 0.75;
+        diamondPricing = { round: { realRate: 100000, cvdRate: 19000 } };
+        polkiPricing = { stone: { realRate: 25000 }, polki: { realRate: 50000 } };
+    }
 
     // Calculate gold value = Weight × Rate × Purity Factor
     const goldValue = goldWeight * goldRate * purityFactor;
 
     // Calculate labour cost = Labour Rate × Gold Weight
     const labourCost = labourRate * goldWeight;
-
-    // Get pricing from config
-    const diamondPricing = config.getDiamondPricing();
-    const polkiPricing = config.getPolkiPricing();
 
     // Determine article type
     const articleType = currentItemData.articleType || 'diamond';
@@ -394,7 +413,8 @@ function calculatePriceWithRates(goldRate, labourRate, taxPercent, showSuccessTo
                 let typeId = (d.type_id || d.type || 'round').toLowerCase();
 
                 // Normalize type IDs using dynamic aliases from config
-                const aliases = config.getDiamondTypeAliases();
+                let aliases = {};
+                try { aliases = config.getDiamondTypeAliases(); } catch (_) { }
                 if (aliases[typeId]) {
                     console.log(`Diamond type '${typeId}' mapped to '${aliases[typeId]}'`);
                     typeId = aliases[typeId];
@@ -575,7 +595,9 @@ async function resetToScan() {
     document.getElementById('taxPercent').value = '3';
 
     // Reset camera section
-    document.getElementById('cameraSection').style.height = '400px';
+    const camSection = document.getElementById('cameraSection');
+    camSection.style.height = '400px';
+    camSection.classList.remove('camera-collapsed');
 
     // Clear current data
     currentItemData = null;
@@ -721,7 +743,9 @@ async function searchBySku() {
             document.getElementById('skuEntrySection').classList.add('hidden');
 
             // Hide camera, show results
-            document.getElementById('cameraSection').style.height = '120px';
+            const camEl = document.getElementById('cameraSection');
+            camEl.style.height = '120px';
+            camEl.classList.add('camera-collapsed');
             document.getElementById('permissionDenied').classList.add('hidden');
 
             // Display item
@@ -839,16 +863,34 @@ function displayBreakdownImages(item) {
 
     if (!primaryContainer) return;
 
-    const apiBase = 'http://localhost:3000'; // Backend URL
+    // Compute backend base URL for image loading (self-contained, no dependency on API_BASE)
+    const loc = window.location;
+    const backendPort = '3000';
+    const apiBase = (loc.port === backendPort)
+        ? loc.origin                                             // Same origin as backend
+        : `${loc.protocol}//${loc.hostname}:${backendPort}`;    // Different port (dev/Tailscale)
 
     // Primary image
     if (item.images && item.images.primary) {
-        primaryContainer.innerHTML = `<img src="${apiBase}${item.images.primary}" alt="Item image" onerror="this.parentElement.innerHTML='<span class=\\'no-image-placeholder\\'>No Image</span>'">`;
+        const imgUrl = `${apiBase}${item.images.primary}`;
+        console.log('[Images] Loading primary:', imgUrl);
+        const img = document.createElement('img');
+        img.src = imgUrl;
+        img.alt = 'Item image';
+        img.onload = () => console.log('[Images] ✅ Primary loaded successfully');
+        img.onerror = (e) => {
+            console.error('[Images] ❌ Primary failed to load:', imgUrl, e);
+            primaryContainer.innerHTML = '<span class="no-image-placeholder">No Image</span>';
+            primaryContainer.classList.remove('has-image');
+        };
+        primaryContainer.innerHTML = '';
+        primaryContainer.appendChild(img);
         primaryContainer.classList.add('has-image');
 
         // Click to enlarge
-        primaryContainer.onclick = () => showImageLightbox(`${apiBase}${item.images.primary}`);
+        primaryContainer.onclick = () => showImageLightbox(imgUrl);
     } else {
+        console.log('[Images] No primary image in item data:', item.images);
         primaryContainer.innerHTML = '<span class="no-image-placeholder">No Image</span>';
         primaryContainer.classList.remove('has-image');
         primaryContainer.onclick = null;

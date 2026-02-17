@@ -92,6 +92,7 @@ const allowedOrigins = [
     'http://localhost:8000',
     'http://localhost:8080',
     'http://127.0.0.1:8000',
+    'https://bhavya-dell.taile6ae79.ts.net',
     config.corsOrigin
 ].filter(Boolean);
 

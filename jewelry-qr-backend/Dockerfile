@@ -16,6 +16,8 @@ COPY --chown=nodejs:nodejs . .
 # Create runtime directories
 RUN mkdir -p logs uploads && chown -R nodejs:nodejs logs uploads
 
+ENV NODE_ENV=production
+
 USER nodejs
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \

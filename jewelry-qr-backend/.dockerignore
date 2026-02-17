@@ -13,3 +13,6 @@ tests
 coverage
 .vscode
 .idea
+tmp
+*.tmp
+*.log

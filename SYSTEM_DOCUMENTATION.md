@@ -1,8 +1,8 @@
 # JewelQR System - Complete Documentation
 
-> **Last Updated:** February 1, 2026  
-> **Version:** 1.7.0  
-> **Status:** Production Ready - Security Hardened
+> **Last Updated:** February 17, 2026  
+> **Version:** 1.7.1  
+> **Status:** Production Ready - Security Hardened + Mobile QR Ready
 
 ---
 
@@ -60,6 +60,186 @@
 ---
 
 ## Changelog
+
+### Version 1.7.1 (February 17, 2026)
+
+**Mobile QR Scanning, Image Serving & Tailscale HTTPS Deployment**
+
+This release resolves all issues with QR code scanning on mobile devices, implements a robust cross-origin image serving architecture, adds Tailscale Serve HTTPS deployment for secure mobile access, and polishes the scan page UI with a luxury jewelry theme.
+
+---
+
+#### 1. Tailscale Serve HTTPS Deployment
+
+Mobile browsers require HTTPS (secure context) for camera access (`getUserMedia`). Tailscale Serve provides automatic TLS certificates for LAN/VPN access.
+
+| Component | URL | Proxy Target |
+|-----------|-----|-------------|
+| **Frontend** | `https://<hostname>.taile6ae79.ts.net/` | `http://localhost:8000` |
+| **Backend** | `https://<hostname>.taile6ae79.ts.net:3000/` | `http://localhost:3000` |
+
+**Setup Commands:**
+```powershell
+# Frontend HTTPS (port 443)
+tailscale serve --bg --https=443 http://localhost:8000
+
+# Backend HTTPS (port 3000)
+tailscale serve --bg --https=3000 http://localhost:3000
+
+# Verify status
+tailscale serve status
+```
+
+**CORS Configuration Updated:**
+```javascript
+// Backend app.js - allowedOrigins now includes Tailscale
+const allowedOrigins = [
+  'http://localhost:8000',
+  'http://localhost:8080',
+  'http://127.0.0.1:8000',
+  'https://bhavya-dell.taile6ae79.ts.net'  // Tailscale HTTPS
+];
+```
+
+---
+
+#### 2. Cross-Origin Image Serving Architecture
+
+Item images are stored on the backend and served via `express.static('/uploads')`. When the frontend is on a different origin (port 443 vs 3000), image URLs must be constructed dynamically.
+
+**Image URL Construction (scan.js & dashboard.js):**
+```javascript
+// Self-contained — does NOT depend on API_BASE from api.js
+const loc = window.location;
+const backendPort = '3000';
+const apiBase = (loc.port === backendPort)
+    ? loc.origin                                    // Same origin as backend
+    : `${loc.protocol}//${loc.hostname}:${backendPort}`;  // Cross-port
+
+// Image URL: apiBase + item.images.primary
+// e.g., "https://bhavya-dell.taile6ae79.ts.net:3000/uploads/items/NCK-000027/primary.webp"
+```
+
+**Why self-contained?** The `API_BASE` variable from `api.js` includes `/api` suffix and may not be loaded on all pages. Computing the backend URL directly from `window.location` ensures images work everywhere.
+
+---
+
+#### 3. API Base URL Detection (api.js)
+
+`api.js` now detects three environments automatically:
+
+| Environment | Detection | API_BASE |
+|-------------|-----------|----------|
+| **Local Dev** | Port 8000 or 8080 | `http://localhost:3000/api` |
+| **Tailscale** | HTTPS + `.ts.net` hostname + no port | `https://<hostname>:3000/api` |
+| **Production** | Everything else | `/api` (same-origin) |
+
+```javascript
+const isDev = port === '8000' || port === '8080';
+const isTailscale = proto === 'https:' && !port && host.endsWith('.ts.net');
+const API_BASE = isDev ? `${proto}//${host}:3000/api`
+    : isTailscale ? `https://${host}:3000/api`
+        : '/api';
+```
+
+---
+
+#### 4. Image Display Flow (scan.js)
+
+Images are now displayed **immediately** after item data loads, independent of price calculation:
+
+```
+fetchAndDisplayItem(sku)
+  ├── transformApiData(item)       → currentItemData (includes images)
+  ├── displayComposition()          → SKU, gold, diamonds info
+  ├── displayBreakdownImages()      → Renders images ✅ (NEW: called early)
+  ├── Show breakdown card           → Card visible before prices ✅ (NEW)
+  └── try { autoFillRatesAndCalculate() }  → Price calc (wrapped in try-catch)
+```
+
+**Previous bug:** `displayBreakdownImages` was only called inside `calculatePriceWithRates` (line 450). If `config.getPurityFactor()` threw an error (e.g., config API unreachable), images were never rendered.
+
+**Fix:** Images display from `fetchAndDisplayItem()` immediately, with `autoFillRatesAndCalculate()` wrapped in try-catch so config failures don't crash the scan.
+
+---
+
+#### 5. Config Resilience (scan.js)
+
+All `config.*` calls in `calculatePriceWithRates` are now wrapped with try-catch and fallback defaults:
+
+| Config Call | Fallback |
+|-------------|----------|
+| `config.getPurityFactor()` | `{ '24K': 1.0, '22K': 0.9167, '18K': 0.75, '14K': 0.585 }` |
+| `config.getDiamondPricing()` | `{ round: { realRate: 100000, cvdRate: 19000 } }` |
+| `config.getPolkiPricing()` | `{ stone: { realRate: 25000 }, polki: { realRate: 50000 } }` |
+| `config.getDiamondTypeAliases()` | `{}` (no aliasing) |
+
+This ensures the scan page works even when the backend settings API is unreachable.
+
+---
+
+#### 6. Cache Busting (scan.html)
+
+All CSS and JS references in `scan.html` now use `?v=2` query strings:
+
+```html
+<link rel="stylesheet" href="css/scan.css?v=2">
+<script src="js/scan.js?v=2"></script>
+```
+
+This forces mobile browsers to download fresh assets after code changes, preventing stale cached JavaScript from running.
+
+---
+
+#### 7. Camera Overlay Fix (scan.css + scan.js)
+
+Fixed persistent dark tint overlay after QR scan:
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Dark overlay persists after scan | `.scan-frame` uses `box-shadow: 0 0 0 9999px rgba(0,0,0,0.5)` | Added `.camera-collapsed` CSS class toggled by JS |
+
+```css
+/* When camera collapses, hide the massive shadow overlay */
+.camera-collapsed .camera-overlay,
+.camera-collapsed .scan-frame { display: none !important; }
+```
+
+---
+
+#### 8. Scan Page UI Polish
+
+Rewrote `scan.css` (729 lines) with luxury jewelry theme:
+
+| Element | Design |
+|---------|--------|
+| **SKU Badge** | Gold gradient with shimmer animation |
+| **Camera Controls** | Frosted glass effect with blur backdrop |
+| **Breakdown Card** | Premium edge-to-edge gold total bar |
+| **Typography** | Gold accent colors, refined spacing |
+| **Animations** | Smooth scan line, micro-interactions |
+
+---
+
+#### 9. Files Modified
+
+**Frontend:**
+
+| File | Changes |
+|------|---------|
+| `scan.html` | Added `api.js` script include; cache-busting `?v=2` on all assets |
+| `js/scan.js` | Early image display; config try-catch resilience; dynamic image URL; camera overlay toggle |
+| `js/dashboard.js` | Dynamic image URL (replaced hardcoded `http://localhost:3000`) |
+| `js/api.js` | Tailscale HTTPS environment detection |
+| `css/scan.css` | Complete luxury theme rewrite; camera overlay fix |
+
+**Backend:**
+
+| File | Changes |
+|------|---------|
+| `src/app.js` | Added Tailscale origin to CORS allowedOrigins |
+
+---
 
 ### Version 1.7.0 (February 1, 2026)
 
@@ -1500,8 +1680,29 @@ Authorization: Bearer <token>
   ],
   
   qrData: String (SKU only - item details fetched from database on scan),
+  
+  // Image references (v1.7.1) — paths only, not binary data
+  images: {
+    primary: String (default: null),    // e.g., "/uploads/items/NCK-000027/primary.webp"
+    gallery: [String]                   // Additional image paths
+  },
+  
+  // Modular Architecture Fields (v1.4.0)
+  itemMasterId: ObjectId (ref: ItemMaster, nullable),
+  attributes: Map<String, Mixed> (dynamic attributes),
+  pricing: {
+    pricingRuleId: ObjectId (ref: PricingRule),
+    pricingRuleVersion: Number,
+    rateTableId: ObjectId (ref: RateTable),
+    rateTableVersion: Number,
+    lastComputedAt: Date,
+    lastComputedBreakdown: Mixed
+  },
+  
   createdBy: ObjectId (ref: User),
+  updatedBy: ObjectId (ref: User),
   deletedAt: Date (soft delete timestamp, null if active),
+  deletedBy: ObjectId (ref: User, null if active),
   createdAt: Date,
   updatedAt: Date
 }
@@ -2212,22 +2413,43 @@ async function initializeScan() {
 <script src="js/components.js"></script>
 ```
 
-### API Base URL Detection
+### API Base URL Detection *(Updated v1.7.1)*
 
 ```javascript
-// In api.js
-const isDev = window.location.port === '8000' || window.location.port === '8080';
-const API_BASE = isDev ? 'http://localhost:3000/api' : '/api';
+// In api.js — three-environment detection
+const port = window.location.port;
+const proto = window.location.protocol;
+const host = window.location.hostname;
+const isDev = port === '8000' || port === '8080';
+const isTailscale = proto === 'https:' && !port && host.endsWith('.ts.net');
+const API_BASE = isDev ? `${proto}//${host}:3000/api`
+    : isTailscale ? `https://${host}:3000/api`
+        : '/api';
 ```
 
-### CORS Configuration
+### Image URL Construction *(v1.7.1)*
+
+Image URLs are computed separately from `API_BASE` (self-contained in `scan.js` and `dashboard.js`):
+
+```javascript
+// Does NOT depend on api.js — works on any page
+const loc = window.location;
+const backendPort = '3000';
+const apiBase = (loc.port === backendPort)
+    ? loc.origin
+    : `${loc.protocol}//${loc.hostname}:${backendPort}`;
+// Image: apiBase + item.images.primary
+```
+
+### CORS Configuration *(Updated v1.7.1)*
 
 ```javascript
 // In backend src/app.js
 const allowedOrigins = [
   'http://localhost:8000',
   'http://localhost:8080',
-  'http://127.0.0.1:8000'
+  'http://127.0.0.1:8000',
+  'https://bhavya-dell.taile6ae79.ts.net'  // Tailscale HTTPS (v1.7.1)
 ];
 
 app.use(cors({
@@ -2314,6 +2536,46 @@ net start MongoDB
 - Verify backend connection
 - Check browser console for API errors
 
+#### 6. QR Scanner Not Working on Phone *(v1.7.1)*
+
+- **Camera requires HTTPS** — mobile browsers block `getUserMedia` on insecure origins
+- **Fix:** Use Tailscale Serve to provide HTTPS:
+  ```powershell
+  tailscale serve --bg --https=443 http://localhost:8000
+  tailscale serve --bg --https=3000 http://localhost:3000
+  ```
+- Access via `https://<hostname>.ts.net/jewelry-qr-frontend/scan.html`
+
+#### 7. Images Not Loading on Phone ("No Image" shown) *(v1.7.1)*
+
+**Common causes and fixes:**
+
+| Cause | Symptom | Fix |
+|-------|---------|-----|
+| Cached old JS | Laptop works, phone doesn't | Bump `?v=N` in scan.html script tags |
+| Config API unreachable | No prices + no images | Config calls now have try-catch fallbacks |
+| Hardcoded `localhost:3000` | Image URL wrong on phone | Image URL computed from `window.location` |
+| CORS missing Tailscale origin | API calls fail from phone | Add Tailscale origin to `allowedOrigins` |
+
+**Debug steps:**
+1. Open `https://<hostname>.ts.net:3000/uploads/items/<SKU>/primary.webp` directly on phone
+2. If image loads → problem is in JS (check cache)
+3. If image doesn't load → Tailscale Serve on port 3000 not running
+4. Check console for `[Images] Loading primary:` and `[Images] ✅ Primary loaded` logs
+
+#### 8. Tailscale Serve Issues
+
+```powershell
+# Check status
+tailscale serve status
+
+# Reset and reconfigure
+tailscale serve --https=443 off
+tailscale serve --https=3000 off
+tailscale serve --bg --https=443 http://localhost:8000
+tailscale serve --bg --https=3000 http://localhost:3000
+```
+
 ### Verifying Services
 
 ```powershell
@@ -2326,6 +2588,12 @@ net start MongoDB
 # Test Login
 $body = '{"username":"admin","password":"admin123"}'
 (Invoke-WebRequest -Uri "http://localhost:3000/api/auth/login" -Method POST -Body $body -ContentType "application/json" -UseBasicParsing).Content
+
+# Test Tailscale HTTPS (v1.7.1)
+(Invoke-WebRequest -Uri "https://bhavya-dell.taile6ae79.ts.net:3000/api/health" -UseBasicParsing).Content
+
+# Test Image Serving via Tailscale (v1.7.1)
+(Invoke-WebRequest -Uri "https://bhavya-dell.taile6ae79.ts.net:3000/uploads/items/NCK-000027/primary.webp" -Method HEAD -UseBasicParsing).StatusCode
 ```
 
 ---
@@ -2352,6 +2620,20 @@ For production deployment:
 4. Enable HTTPS
 5. Set `NODE_ENV=production`
 
+### Development Mobile Access (Tailscale) *(v1.7.1)*
+
+For testing on mobile devices during development:
+
+1. Install Tailscale on both dev machine and phone
+2. Start backend and frontend servers locally
+3. Run Tailscale Serve:
+   ```powershell
+   tailscale serve --bg --https=443 http://localhost:8000
+   tailscale serve --bg --https=3000 http://localhost:3000
+   ```
+4. Access from phone: `https://<hostname>.ts.net/jewelry-qr-frontend/scan.html`
+5. Camera access granted automatically (HTTPS satisfies secure context requirement)
+
 ---
 
 ## Summary
@@ -2368,6 +2650,8 @@ This JewelQR system provides a complete solution for jewelry inventory managemen
 - **Soft Delete:** Items and categories with restore capability *(v1.6.1)*
 - **Security Hardening:** HTTPS, Helmet, rate limiting, sanitization *(v1.7.0)*
 - **Production Ready:** Docker, Nginx, backup automation *(v1.7.0)*
+- **Mobile QR Scanning:** Tailscale HTTPS, cross-origin image serving, config resilience *(v1.7.1)*
+- **Image Management:** Upload, serve, and display item images in scan/dashboard *(v1.7.1)*
 
 ### Authorization Model (v1.5.0)
 
@@ -2447,12 +2731,17 @@ npm run dev
 cd ..
 python -m http.server 8000
 
-# 4. Access
+# 4. Access (Local)
 open http://localhost:8000/jewelry-qr-frontend/
+
+# 5. Access (Mobile via Tailscale — v1.7.1)
+tailscale serve --bg --https=443 http://localhost:8000
+tailscale serve --bg --https=3000 http://localhost:3000
+# Then open https://<hostname>.ts.net/jewelry-qr-frontend/ on phone
 ```
 
 ---
 
-*Document updated for JewelQR System v1.7.0 - February 1, 2026*
-*Security Hardening Release - Production Ready*
+*Document updated for JewelQR System v1.7.1 - February 17, 2026*
+*Mobile QR Scanning & Image Serving Release*
 

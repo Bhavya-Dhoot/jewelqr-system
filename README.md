@@ -65,10 +65,10 @@ python -m http.server 8000
 open http://localhost:8000/jewelry-qr-frontend/
 ```
 
-### Development (Docker)
+### Production (Docker)
 
 ```bash
-docker-compose -f docker-compose.dev.yml up
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 ---
@@ -90,7 +90,7 @@ docker-compose -f docker-compose.prod.yml up -d
 curl -k https://localhost/api/health
 ```
 
-See [SECURITY_HARDENING.md](SECURITY_HARDENING.md) for complete security documentation.
+See [SYSTEM_DOCUMENTATION.md](SYSTEM_DOCUMENTATION.md) for complete security documentation.
 
 ---
 
@@ -117,12 +117,10 @@ jewelqr-system/
 │   └── settings.html         # System settings
 ├── scripts/                  # Deployment scripts
 │   ├── backup.sh             # MongoDB backup
-│   ├── restore.sh            # Backup restore
-│   └── mongo-init.js         # DB initialization
+│   └── restore.sh            # Backup restore
 ├── docker-compose.prod.yml   # Production stack
-├── docker-compose.dev.yml    # Development stack
 ├── nginx.prod.conf           # Production Nginx
-├── nginx.dev.conf            # Development Nginx
+├── mongo-init.js             # MongoDB initialization
 └── SYSTEM_DOCUMENTATION.md   # Complete documentation
 ```
 
@@ -171,8 +169,7 @@ jewelqr-system/
 
 ## Documentation
 
-- [SYSTEM_DOCUMENTATION.md](SYSTEM_DOCUMENTATION.md) — Complete system documentation
-- [SECURITY_HARDENING.md](SECURITY_HARDENING.md) — Security implementation details
+- [SYSTEM_DOCUMENTATION.md](SYSTEM_DOCUMENTATION.md) — Complete system documentation (includes security details)
 
 ---
 
@@ -180,6 +177,7 @@ jewelqr-system/
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.7.1 | Feb 2026 | Mobile QR, Image Serving, Tailscale HTTPS |
 | 1.7.0 | Feb 2026 | Production Security Hardening |
 | 1.6.1 | Feb 2026 | Soft Delete + Restore |
 | 1.6.0 | Feb 2026 | Category Soft Delete |

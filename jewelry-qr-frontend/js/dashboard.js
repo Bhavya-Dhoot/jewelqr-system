@@ -362,7 +362,8 @@ async function viewItem(sku) {
     // Display item images
     const imagesContainer = document.getElementById('viewItemImages');
     if (item.images && (item.images.primary || (item.images.gallery && item.images.gallery.length > 0))) {
-      const apiBase = 'http://localhost:3000'; // Backend URL for images
+      const loc = window.location;
+      const apiBase = (loc.port === '3000') ? loc.origin : `${loc.protocol}//${loc.hostname}:3000`;
       let imagesHtml = '';
 
       // Primary image

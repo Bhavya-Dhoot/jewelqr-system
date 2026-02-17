@@ -34,3 +34,9 @@ coverage/
 *.tmp
 tmp/
 temp/
+
+# Production artifacts (never commit)
+ssl/
+backups/
+uploads/
+*.tar.gz
