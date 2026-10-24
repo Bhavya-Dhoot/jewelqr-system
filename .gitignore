@@ -35,6 +35,10 @@ coverage/
 tmp/
 temp/
 
+# Local dev
+*.dev.log
+.claude/
+
 # Production artifacts (never commit)
 ssl/
 backups/

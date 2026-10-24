@@ -1,0 +1,32 @@
+{
+  "name": "esme-ims-gateway",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Esme Crystal IMS gateway: auth, inventory API and Shopify sync on top of ERPNext",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "node --watch src/app.js",
+    "test": "node --test",
+    "smoke": "node scripts/smoke.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "compression": "^1.8.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
+    "joi": "^18.3.0",
+    "multer": "^2.5.0",
+    "pino": "^10.4.0",
+    "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "pino-pretty": "^13.2.0"
+  }
+}

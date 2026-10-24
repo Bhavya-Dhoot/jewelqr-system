@@ -1,0 +1,11 @@
+# Automatic HTTPS (Let's Encrypt). Both domains must point at this server.
+{$IMS_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy gateway:3000
+}
+
+# ERPNext desk for managers / accounts (users, roles, reports, backups).
+{$ERP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy frontend:8080
+}

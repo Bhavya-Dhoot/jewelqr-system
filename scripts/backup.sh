@@ -1,63 +1,25 @@
-#!/bin/bash
-# JewelQR MongoDB Backup Script
-# Runs daily via cron, maintains retention policy
+#!/usr/bin/env bash
+# ERPNext backup (database + public/private files) copied out of the container.
+# Cron, daily:  0 2 * * *  cd /srv/esme-ims && ./scripts/backup.sh >> backups/backup.log 2>&1
+set -euo pipefail
 
-set -e
-
-# Configuration
-MONGO_HOST="${MONGO_HOST:-mongo}"
-MONGO_PORT="${MONGO_PORT:-27017}"
-MONGO_DB="${MONGO_DB:-jewelqr}"
-MONGO_USER="${MONGO_USER:-admin}"
-MONGO_PASSWORD="${MONGO_PASSWORD}"
-BACKUP_DIR="/backups"
+COMPOSE="docker compose -f docker-compose.prod.yml"
+SITE="${ERP_SITE:-frontend}"
+DEST="${BACKUP_DIR:-./backups}"
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
 
-# Timestamp
-TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-BACKUP_NAME="jewelqr_backup_${TIMESTAMP}"
-BACKUP_PATH="${BACKUP_DIR}/${BACKUP_NAME}"
+mkdir -p "$DEST"
+echo "== $(date -Is) backing up site $SITE"
+$COMPOSE exec -T backend bench --site "$SITE" backup --with-files --compress
 
-echo "=========================================="
-echo "JewelQR Backup Started: $(date)"
-echo "=========================================="
+STAMP=$(date +%Y%m%d_%H%M%S)
+OUT="$DEST/$STAMP"
+mkdir -p "$OUT"
+# Copy the newest backup set out of the shared sites volume.
+$COMPOSE exec -T backend bash -c "cd sites/$SITE/private/backups && ls -t | head -4" | while read -r f; do
+  $COMPOSE cp "backend:/home/frappe/frappe-bench/sites/$SITE/private/backups/$f" "$OUT/$f"
+done
+( cd "$OUT" && sha256sum * > SHA256SUMS )
+echo "== saved to $OUT ($(du -sh "$OUT" | cut -f1))"
 
-# Create backup directory
-mkdir -p "${BACKUP_DIR}"
-
-# Run mongodump
-echo "Running mongodump..."
-mongodump \
-    --host="${MONGO_HOST}" \
-    --port="${MONGO_PORT}" \
-    --username="${MONGO_USER}" \
-    --password="${MONGO_PASSWORD}" \
-    --authenticationDatabase="admin" \
-    --db="${MONGO_DB}" \
-    --out="${BACKUP_PATH}" \
-    --gzip
-
-# Create tarball
-echo "Compressing backup..."
-cd "${BACKUP_DIR}"
-tar -czf "${BACKUP_NAME}.tar.gz" "${BACKUP_NAME}"
-rm -rf "${BACKUP_NAME}"
-
-# Calculate checksum
-sha256sum "${BACKUP_NAME}.tar.gz" > "${BACKUP_NAME}.tar.gz.sha256"
-
-# Get backup size
-BACKUP_SIZE=$(du -h "${BACKUP_NAME}.tar.gz" | cut -f1)
-echo "Backup created: ${BACKUP_NAME}.tar.gz (${BACKUP_SIZE})"
-
-# Cleanup old backups
-echo "Cleaning up backups older than ${RETENTION_DAYS} days..."
-find "${BACKUP_DIR}" -name "jewelqr_backup_*.tar.gz*" -mtime +${RETENTION_DAYS} -delete
-
-# List current backups
-echo "Current backups:"
-ls -lh "${BACKUP_DIR}"/jewelqr_backup_*.tar.gz 2>/dev/null || echo "No backups found"
-
-echo "=========================================="
-echo "Backup completed: $(date)"
-echo "=========================================="
+find "$DEST" -mindepth 1 -maxdepth 1 -type d -mtime +"$RETENTION_DAYS" -exec rm -rf {} +

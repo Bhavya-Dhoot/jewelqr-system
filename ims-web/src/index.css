@@ -1,0 +1,269 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+    --color-chart-line-primary: var(--chart-line-primary);
+    --color-chart-line-secondary: var(--chart-line-secondary);
+    --color-chart-brush-border: var(--chart-brush-border);
+    --color-chart-tooltip-background: var(--chart-tooltip-background);
+    --color-chart-tooltip-foreground: var(--chart-tooltip-foreground);
+    --color-chart-tooltip-muted: var(--chart-tooltip-muted);
+    --color-chart-scale-02: var(--chart-scale-02);
+    --color-chart-scale-03: var(--chart-scale-03);
+    --color-chart-scale-04: var(--chart-scale-04);
+    --color-chart-scale-05: var(--chart-scale-05);
+    --color-chart-segment-line: var(--chart-segment-line);
+    --color-chart-segment-background: var(--chart-segment-background);
+    --color-chart-marker-badge-foreground: var(--chart-marker-badge-foreground);
+    --color-chart-marker-badge-background: var(--chart-marker-badge-background);
+    --color-chart-indicator-secondary-color: var(--chart-indicator-secondary-color);
+    --color-chart-indicator-color: var(--chart-indicator-color);
+    --color-chart-scale-pattern-color: var(--chart-scale-pattern-color);
+    --chart-scale-05: var(--chart-scale-05);
+    --chart-scale-04: var(--chart-scale-04);
+    --chart-scale-03: var(--chart-scale-03);
+    --chart-scale-02: var(--chart-scale-02);
+    --color-chart-scale-01: var(--chart-scale-01);
+    --color-chart-scale-mix: var(--chart-scale-mix);
+    --color-chart-label: var(--chart-label);
+    --color-chart-marker-foreground: var(--chart-marker-foreground);
+    --color-chart-marker-border: var(--chart-marker-border);
+    --color-chart-marker-background: var(--chart-marker-background);
+    --chart-tooltip-muted: var(--chart-tooltip-muted);
+    --chart-tooltip-foreground: var(--chart-tooltip-foreground);
+    --chart-tooltip-background: var(--chart-tooltip-background);
+    --chart-brush-border: var(--chart-brush-border);
+    --color-chart-grid: var(--chart-grid);
+    --color-chart-crosshair: var(--chart-crosshair);
+    --chart-line-secondary: var(--chart-line-secondary);
+    --chart-line-primary: var(--chart-line-primary);
+    --color-chart-foreground-muted: var(--chart-foreground-muted);
+    --color-chart-foreground: var(--chart-foreground);
+    --color-chart-background: var(--chart-background);
+    --color-chart-negative: var(--chart-negative);
+    --color-chart-positive: var(--chart-positive);
+}
+
+:root {
+    --background: #ffffff;
+    --foreground: #0a0a0a;
+    --card: #ffffff;
+    --card-foreground: #0a0a0a;
+    --popover: #ffffff;
+    --popover-foreground: #0a0a0a;
+    --primary: #0a0a0a;
+    --primary-foreground: #ffffff;
+    --secondary: #f4f4f4;
+    --secondary-foreground: #0a0a0a;
+    --muted: #f4f4f4;
+    --muted-foreground: #666666;
+    --accent: #f0f0f0;
+    --accent-foreground: #0a0a0a;
+    --destructive: #d10500;
+    --border: #e3e3e3;
+    --input: #cfcfcf;
+    --ring: #0a0a0a;
+    --chart-1: #0a0a0a;
+    --chart-2: #e10600;
+    --chart-3: #9a9a9a;
+    --chart-4: #5c5c5c;
+    --chart-5: #c8c8c8;
+    --radius: 0rem;
+    --sidebar: #ffffff;
+    --sidebar-foreground: #0a0a0a;
+    --sidebar-primary: #e10600;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #f4f4f4;
+    --sidebar-accent-foreground: #0a0a0a;
+    --sidebar-border: #e3e3e3;
+    --sidebar-ring: #0a0a0a;
+    --chart-positive: oklch(0.696 0.17 162.48);
+    --chart-negative: oklch(0.637 0.237 25.331);
+    --chart-background: oklch(1 0 0);
+    --chart-foreground: #0a0a0a;
+    --chart-foreground-muted: #666666;
+    --chart-line-primary: var(--chart-1);
+    --chart-line-secondary: var(--chart-2);
+    --chart-crosshair: #0a0a0a;
+    --chart-grid: #ececec;
+    --chart-brush-border: var(--chart-grid);
+    --chart-tooltip-background: var(--popover);
+    --chart-tooltip-foreground: var(--popover-foreground);
+    --chart-tooltip-muted: var(--muted-foreground);
+    --chart-marker-background: oklch(0.97 0.005 260);
+    --chart-marker-border: oklch(0.85 0.01 260);
+    --chart-marker-foreground: oklch(0.3 0.01 260);
+    --chart-label: #666666;
+    --chart-scale-mix: oklch(1 0 0);
+    --chart-scale-01: oklch(0.922 0 0);
+    --chart-scale-02: color-mix(in oklab, var(--chart-1) 35%, var(--chart-scale-mix));
+    --chart-scale-03: color-mix(in oklab, var(--chart-1) 55%, var(--chart-scale-mix));
+    --chart-scale-04: color-mix(in oklab, var(--chart-1) 78%, var(--chart-scale-mix));
+    --chart-scale-05: var(--chart-1);
+    --chart-scale-pattern-color: oklch(1 0 0);
+    --chart-indicator-color: #0a0a0a;
+    --chart-indicator-secondary-color: oklch(0.913 0 0);
+    --chart-marker-badge-background: oklch(0 0 0);
+    --chart-marker-badge-foreground: oklch(0.84 0 0);
+    --chart-segment-background: oklch(0.756 0 0 / 0.06);
+    --chart-segment-line: oklch(0.5 0 0 / 0.25);
+}
+
+.dark {
+    --background: #0a0a0a;
+    --foreground: #f5f5f5;
+    --card: #0a0a0a;
+    --card-foreground: #f5f5f5;
+    --popover: #141414;
+    --popover-foreground: #f5f5f5;
+    --primary: #f5f5f5;
+    --primary-foreground: #0a0a0a;
+    --secondary: #1a1a1a;
+    --secondary-foreground: #f5f5f5;
+    --muted: #1a1a1a;
+    --muted-foreground: #a3a3a3;
+    --accent: #1f1f1f;
+    --accent-foreground: #f5f5f5;
+    --destructive: #ff4d42;
+    --border: #262626;
+    --input: #3a3a3a;
+    --ring: #f5f5f5;
+    --chart-1: #f5f5f5;
+    --chart-2: #ff3b30;
+    --chart-3: #8a8a8a;
+    --chart-4: #bdbdbd;
+    --chart-5: #4a4a4a;
+    --sidebar: #0a0a0a;
+    --sidebar-foreground: #f5f5f5;
+    --sidebar-primary: #ff3b30;
+    --sidebar-primary-foreground: #0a0a0a;
+    --sidebar-accent: #1a1a1a;
+    --sidebar-accent-foreground: #f5f5f5;
+    --sidebar-border: #262626;
+    --sidebar-ring: #f5f5f5;
+    --chart-positive: oklch(0.765 0.177 163.223);
+    --chart-negative: oklch(0.704 0.191 22.216);
+    --chart-background: oklch(0.145 0 0);
+    --chart-foreground: #f5f5f5;
+    --chart-foreground-muted: #a3a3a3;
+    --chart-crosshair: #f5f5f5;
+    --chart-grid: #222222;
+    --chart-brush-border: var(--chart-grid);
+    --chart-marker-background: oklch(0.25 0.01 260);
+    --chart-marker-border: oklch(0.4 0.01 260);
+    --chart-marker-foreground: oklch(0.9 0 0);
+    --chart-label: #a3a3a3;
+    --chart-scale-mix: oklch(0.25 0 0);
+    --chart-scale-01: oklch(0.3 0 0);
+    --chart-scale-02: color-mix(in oklab, var(--chart-1) 35%, var(--chart-scale-mix));
+    --chart-scale-03: color-mix(in oklab, var(--chart-1) 55%, var(--chart-scale-mix));
+    --chart-scale-04: color-mix(in oklab, var(--chart-1) 78%, var(--chart-scale-mix));
+    --chart-scale-05: var(--chart-1);
+    --chart-scale-pattern-color: oklch(0.145 0 0);
+    --chart-indicator-color: #f5f5f5;
+    --chart-indicator-secondary-color: oklch(0.145 0 0);
+    --chart-marker-badge-background: oklch(1 0 0);
+    --chart-marker-badge-foreground: oklch(0.15 0 0);
+    --chart-segment-background: oklch(0.41 0.0127 248.14 / 0.25);
+    --chart-segment-line: oklch(1 0 0 / 0.25);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+  html {
+    @apply font-sans;
+    }
+}
+/* Swiss Grid: white, black, one red mark. Status colours are reserved for stock state (in / low / out). */
+:root {
+    --status-in: #18794e;
+    --status-low: #a35200;
+    --status-out: #d10500;
+    --mark: #e10600;
+}
+.dark {
+    --status-in: #3fb950;
+    --status-low: #e3a008;
+    --status-out: #ff5a4f;
+    --mark: #ff3b30;
+}
+@theme inline {
+    --color-status-in: var(--status-in);
+    --color-status-low: var(--status-low);
+    --color-status-out: var(--status-out);
+    --color-mark: var(--mark);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+@media print {
+    .no-print { display: none !important; }
+}
+
+/* Figures (prices, quantities, SKUs) set in mono, as in the Swiss Grid system. */
+@layer utilities {
+    .tabular-nums { font-family: var(--font-mono); letter-spacing: -0.01em; }
+}
+
+/* A rule that draws on once: used under page titles to set the grid. */
+@keyframes rule-draw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.rule-draw { transform-origin: left; animation: rule-draw 520ms cubic-bezier(0.2, 0.7, 0.1, 1) both; }
+
+html { font-feature-settings: "cv11", "ss03"; }
