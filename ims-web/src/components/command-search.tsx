@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeftRightIcon, BoxesIcon, PackagePlusIcon, PlusIcon, ScanLineIcon, ShoppingCartIcon } from 'lucide-react'
 import {
-  CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator,
+  Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator,
 } from '@/components/ui/command'
 import { ItemThumb, StockBadge } from '@/components/common'
 import { useMovementDialog } from '@/components/movement-dialog'
@@ -50,6 +50,8 @@ export function CommandSearch({ open, onOpenChange }: { open: boolean; onOpenCha
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange} title="Search inventory" description="Find a piece by SKU, name or collection">
+      {/* CommandDialog no longer wraps its children in <Command>; without it cmdk crashes the page. Results come filtered from the server. */}
+      <Command shouldFilter={false}>
       <CommandInput placeholder="Search SKU, name, collection…" value={q} onValueChange={setQ} />
       <CommandList>
         {q && !isFetching && <CommandEmpty>No pieces match “{q}”.</CommandEmpty>}
@@ -83,6 +85,7 @@ export function CommandSearch({ open, onOpenChange }: { open: boolean; onOpenCha
           </>
         )}
       </CommandList>
+      </Command>
     </CommandDialog>
   )
 }
