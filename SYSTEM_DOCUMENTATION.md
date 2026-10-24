@@ -19,16 +19,12 @@ Request flow: browser -> `/api/*` on the gateway -> ERPNext REST with the user's
 | IMS concept | ERPNext | Notes |
 |---|---|---|
 | Piece / SKU | `Item` (`item_code`) | Stock UOM Nos, valuation method Moving Average per item. Barcode row = SKU. Archived = `disabled`. |
-| Category | `Item Group` under "Jewellery" | Custom `esme_sku_prefix` drives auto SKUs `<PREFIX>-00001`. |
+| Category | `Item Group` under "Jewellery" | Esme's categories; custom `esme_sku_prefix` drives auto SKUs `<PREFIX>-00001`. |
 | Collection | `Esme Collection` (custom) | Link `Item.esme_collection`. |
 | Finish, crystal colour | `Item.esme_finish`, `Item.esme_crystal_colour` | |
-| Pricing mode | `Item.esme_pricing_mode` | `Fixed MRP` or `Metal Rate`. |
 | MRP | `Item Price` on price list "Standard Selling" | |
 | Unit cost | Moving-average valuation from the stock ledger; `Item.valuation_rate` as the default for receipts | |
-| Gold / stones | `Item.esme_metal_purity`, `esme_metal_weight_g`, child table `esme_stones` (`Esme Stone Line`: stone type, Natural / Lab-grown, ct) | |
-| Stone rates | `Esme Stone Type` (natural and lab-grown rate per ct) | |
-| Gold rate history | `Esme Gold Rate` (date, 24K rate per g) | Latest row is "today's rate". |
-| Making charge, tax, low-stock default, default and Shopify locations, Shopify cursor | `Esme Settings` (single) | |
+| Low-stock default, default and Shopify locations, Shopify cursor | `Esme Settings` (single) | |
 | Location | `Warehouse` | Stores, Online Store, Studio, Exhibition, Damaged. |
 | Receive / sell / move / write off | `Stock Entry` (Material Receipt / Issue / Transfer), submitted | Custom `esme_reason`, `esme_reference`, `esme_party`, `esme_sale_value`. |
 | Stock count | `Stock Reconciliation`, submitted | Only lines that differ are posted. |
@@ -40,10 +36,7 @@ Negative stock is blocked (Stock Settings). Reversals are cancellations, which E
 
 ## 3. Pricing
 
-`ims-gateway/src/pricing.js` (tested in `pricing.test.js`).
-
-- Fixed MRP: price = MRP (tax inclusive).
-- Metal Rate: gold = weight x 24K rate x purity factor (24K 0.999, 22K 0.9167, 18K 0.75, 14K 0.583); each stone = ct x natural or lab-grown rate; making = weight x making charge per g; tax = subtotal x tax %; each line rounded to the rupee. Identical to JewelQR v1.
+Every piece sells at its MRP (Item Price on "Standard Selling", inclusive of taxes). Unit cost is ERPNext's moving-average valuation; margin = (MRP - cost) / MRP. Price bands follow esmecrystal.com: under ₹5k, ₹5k to ₹10k, above ₹10k.
 
 ## 4. API (gateway)
 
@@ -54,10 +47,10 @@ All JSON. Errors: `{ "error": "message" }` with HTTP status (401 sign in, 403 no
 | POST | `/api/auth/login` | `{ email, password }` against ERPNext; sets session cookie. Rate limited 10 / 15 min. |
 | POST | `/api/auth/logout` | Ends the ERPNext session. |
 | GET | `/api/auth/me` | Current user, roles, `isManager`. |
-| GET | `/api/meta` | Categories, collections, locations, stone types, finishes, settings, Shopify flag. |
-| GET | `/api/items` | Filter `q, category, collection, finish, location, stock (in/low/out), status, sort, page, pageSize`. |
+| GET | `/api/meta` | Categories, collections, locations, finishes, crystal colour suggestions, settings, Shopify flag. |
+| GET | `/api/items` | Filter `q, category, collection, finish, location, stock (in/low/out), price (under5k/5to10k/over10k), status, sort, page, pageSize`. |
 | GET | `/api/items/next-sku?category=` | Preview the next auto SKU. |
-| GET | `/api/items/:sku` | Detail, stock by location, price breakdown, QR URL, last 50 ledger moves. |
+| GET | `/api/items/:sku` | Detail (MRP, cost, margin, status), stock by location, QR URL, last 50 ledger moves. |
 | POST | `/api/items` | Create (optional `sku`, optional `opening: { warehouse, qty }`). |
 | PUT | `/api/items/:sku` | Update. |
 | DELETE | `/api/items/:sku` | Archive (disable). |
@@ -68,17 +61,16 @@ All JSON. Errors: `{ "error": "message" }` with HTTP status (401 sign in, 403 no
 | GET / POST | `/api/stock/counts` | Recent counts / post a count `{ warehouse, lines: [{ sku, counted }] }`. |
 | GET | `/api/dashboard?days=7/30/90/365` | KPIs and chart series. |
 | GET / POST | `/api/locations` | Summaries / add a location. |
-| POST, PUT | `/api/categories`, `/api/collections`, `/api/stone-types` | Masters. |
-| PUT | `/api/rates` | Gold rate (appends history), making charge, tax, low-stock default, default and online warehouse. |
-| GET | `/api/rates/history` | Gold rate history. |
-| GET | `/api/public/items/:sku` | Public label view: name, photo, attributes, price, availability. No cost or stock counts. Rate limited. |
+| POST, PUT | `/api/categories`, `/api/collections` | Masters. |
+| PUT | `/api/settings` | Low-stock default, default and online warehouse. |
+| GET | `/api/public/items/:sku` | Public label view: name, photo, collection, finish, crystal colour, MRP, availability. No cost or stock counts. Rate limited. |
 | GET | `/api/shopify/status` and (managers) `/locations`, `PUT /settings`, `POST /import`, `POST /sync`, `GET /drift`, `POST /push` | Shopify integration. |
 | GET | `/files/<name>` | Proxied ERPNext public files (item photos). |
 | GET | `/api/health` | Gateway and ERPNext reachability. |
 
 ## 5. Shopify sync
 
-See the header of `ims-gateway/src/shopify.js`. Admin GraphQL `2026-10`; inventory mutations carry `@idempotent` keys derived from the IMS voucher. Orders: `created_at >= cursor` (5 min overlap), skipped when `shopify:<order>` already exists; the cursor stops at the earliest failed order so it retries. Cancelled orders become "Customer Return" receipts. Lines are matched by linked inventory item id, then by SKU.
+See the header of `ims-gateway/src/shopify.js`. Admin GraphQL `2026-10`; inventory mutations carry `@idempotent` keys derived from the IMS voucher. Orders: `created_at >= cursor` (5 min overlap), skipped when `shopify:<order>` already exists; the cursor stops at the earliest failed order so it retries. Cancelled orders become "Customer Return" receipts. Lines are matched by linked inventory item id, then by SKU. Import: Esme's variants mostly have no SKU, so the IMS assigns one from the category prefix and links by inventory item id; the variant's Color option becomes the finish (Gold, Silver, Rose gold, Gunmetal) or the crystal colour; product tags give the collection.
 
 ## 6. Security
 
@@ -101,4 +93,3 @@ See the header of `ims-gateway/src/shopify.js`. Admin GraphQL `2026-10`; invento
 
 - Catalogue views load the whole catalogue per request and filter in memory; fine to roughly 10k SKUs. Beyond that, move filtering into an ERPNext Query Report.
 - Shopify: one Shopify location maps to one ERPNext warehouse. Refunds without cancellation are not restocked automatically; record them as a Customer Return.
-- Legacy JewelQR items migrate with zero cost; set unit costs after migration.

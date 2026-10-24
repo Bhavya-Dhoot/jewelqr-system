@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
-import {
-  ArrowLeftRightIcon, ArrowRightIcon, ChevronDownIcon, PackagePlusIcon, ScanLineIcon, SearchIcon, ShoppingCartIcon,
-} from 'lucide-react'
+import { ArrowLeftRightIcon, ArrowRightIcon, PackagePlusIcon, ScanLineIcon, SearchIcon, ShoppingCartIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -13,11 +11,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ItemThumb, PageHeader, StockBadge } from '@/components/common'
 import { useMovementDialog } from '@/components/movement-dialog'
 import { Scanner, skuFromQr } from '@/components/scanner'
-import { useItem, useMeta } from '@/hooks/api'
+import { useItem } from '@/hooks/api'
 import { ApiError } from '@/lib/api'
 import { formatINR, formatNumber, locationLabel } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import type { StockStatus } from '@/lib/types'
 
 interface Recent { sku: string; name: string; image: string | null }
 
@@ -25,9 +22,7 @@ const MAX_RECENT = 10
 
 function ScanResult({ sku, onNext, onResolved }: { sku: string; onNext: () => void; onResolved: (r: Recent) => void }) {
   const { data, isLoading, isError, error, refetch } = useItem(sku)
-  const { data: meta } = useMeta()
   const { openMovement } = useMovementDialog()
-  const [showPrice, setShowPrice] = useState(false)
 
   useEffect(() => {
     if (data) onResolved({ sku: data.item.sku, name: data.item.name, image: data.item.image })
@@ -66,9 +61,7 @@ function ScanResult({ sku, onNext, onResolved }: { sku: string; onNext: () => vo
     )
   }
 
-  const { item, price, stock } = data
-  const level = item.reorder_level || meta?.settings.low_stock_default || 0
-  const status: StockStatus = item.on_hand <= 0 ? 'out' : item.on_hand <= level ? 'low' : 'in'
+  const { item, stock } = data
   const stockRows = stock.filter(s => s.qty !== 0)
   const facets = [item.category, item.collection, item.finish, item.crystal_colour].filter(Boolean).join(' · ')
 
@@ -81,51 +74,15 @@ function ScanResult({ sku, onNext, onResolved }: { sku: string; onNext: () => vo
           <p className="text-sm text-muted-foreground tabular-nums">{item.sku}</p>
           {facets && <p className="text-xs text-muted-foreground">{facets}</p>}
           <div className="flex flex-wrap items-center gap-1.5">
-            <StockBadge status={status} />
+            <StockBadge status={item.status} />
             {item.disabled && <Badge variant="outline" className="text-muted-foreground">Archived</Badge>}
           </div>
         </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <div className="text-4xl font-semibold tracking-tight tabular-nums">{formatINR(price.total)}</div>
-          <Badge variant="secondary">{price.mode === 'Metal Rate' ? 'Metal rate, incl. tax' : 'Fixed MRP, incl. taxes'}</Badge>
-        </div>
-        <button
-          type="button"
-          aria-expanded={showPrice}
-          onClick={() => setShowPrice(s => !s)}
-          className="flex w-full items-center justify-between rounded-md py-1 text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          Price breakdown
-          <ChevronDownIcon className={cn('size-4 transition-transform', showPrice && 'rotate-180')} />
-        </button>
-        {showPrice && (
-          <div className="space-y-2 rounded-lg border p-3 text-sm">
-            <ul className="space-y-2">
-              {price.lines.map((l, i) => (
-                <li key={i} className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div>{l.label}</div>
-                    {l.detail && <div className="text-xs text-muted-foreground">{l.detail}</div>}
-                  </div>
-                  <div className="tabular-nums">{formatINR(l.value)}</div>
-                </li>
-              ))}
-            </ul>
-            {price.tax > 0 && (
-              <div className="space-y-1 border-t pt-2 text-muted-foreground">
-                <div className="flex justify-between gap-3"><span>Subtotal</span><span className="tabular-nums">{formatINR(price.subtotal)}</span></div>
-                <div className="flex justify-between gap-3"><span>Tax{price.tax_percent != null ? ` (${price.tax_percent}%)` : ''}</span><span className="tabular-nums">{formatINR(price.tax)}</span></div>
-              </div>
-            )}
-            <div className="flex justify-between gap-3 border-t pt-2 font-medium"><span>Total</span><span className="tabular-nums">{formatINR(price.total)}</span></div>
-            {price.missing_stone_rates && price.missing_stone_rates.length > 0 && (
-              <p role="alert" className="text-xs text-destructive">No rate set for {price.missing_stone_rates.join(', ')}. This price is incomplete.</p>
-            )}
-          </div>
-        )}
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <div className="text-4xl font-semibold tracking-tight tabular-nums">{formatINR(item.mrp)}</div>
+        <Badge variant="secondary">MRP, incl. taxes</Badge>
       </div>
 
       <section className="space-y-2">

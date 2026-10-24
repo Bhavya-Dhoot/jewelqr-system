@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { PlusIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react'
+import { TriangleAlertIcon } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,22 +14,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { PageHeader } from '@/components/common'
 import { printLabels } from '@/components/qr-label'
 import { useItem, useMeta, useSaveItem } from '@/hooks/api'
 import { ApiError, api } from '@/lib/api'
-import { formatDate, formatINR, formatNumber } from '@/lib/format'
-import type { ItemDetail, ItemInput, Meta, PricingMode } from '@/lib/types'
+import { formatINR, formatNumber } from '@/lib/format'
+import type { ItemDetail, ItemInput, Meta } from '@/lib/types'
 
 const NONE = '__none'
-const MAX_STONES = 6
-const PURITIES = ['24K', '22K', '18K', '14K']
-// Same factors as ims-gateway/src/pricing.js, so the preview matches the saved price.
-const PURITY_FACTORS: Record<string, number> = { '24K': 0.999, '22K': 0.9167, '18K': 0.75, '14K': 0.583 }
 const SKU_RE = /^[A-Z0-9][A-Z0-9-]{1,39}$/
-
-interface StoneRow { stone_type: string; source: 'Natural' | 'Lab-grown'; weight_ct: string }
 
 interface FormState {
   name: string
@@ -39,12 +32,8 @@ interface FormState {
   finish: string
   crystal_colour: string
   description: string
-  pricing_mode: PricingMode
   mrp: string
   cost: string
-  metal_purity: string
-  metal_weight_g: string
-  stones: StoneRow[]
   opening_qty: string
   opening_warehouse: string
   reorder_level: string
@@ -53,13 +42,13 @@ interface FormState {
 
 type Errors = Record<string, string>
 
-function initialState(meta: Meta, detail?: ItemDetail): FormState {
+/** `detail` is the piece being edited, or (with `variant`) the piece a new variant is copied from. */
+function initialState(meta: Meta, detail?: ItemDetail, variant = false): FormState {
   const defaultLoc = meta.locations.find(l => l.is_default)?.name ?? meta.locations[0]?.name ?? ''
   if (!detail) {
     return {
       name: '', category: '', sku: '', collection: '', finish: '', crystal_colour: '', description: '',
-      pricing_mode: 'Fixed MRP', mrp: '', cost: '', metal_purity: '', metal_weight_g: '', stones: [],
-      opening_qty: '', opening_warehouse: defaultLoc, reorder_level: '', reorder_qty: '',
+      mrp: '', cost: '', opening_qty: '', opening_warehouse: defaultLoc, reorder_level: '', reorder_qty: '',
     }
   }
   const i = detail.item
@@ -68,15 +57,12 @@ function initialState(meta: Meta, detail?: ItemDetail): FormState {
     category: i.category,
     sku: '',
     collection: i.collection ?? '',
-    finish: i.finish ?? '',
-    crystal_colour: i.crystal_colour ?? '',
+    // A variant is the same design in another finish or colour, so those start empty.
+    finish: variant ? '' : i.finish ?? '',
+    crystal_colour: variant ? '' : i.crystal_colour ?? '',
     description: i.description,
-    pricing_mode: i.pricing_mode,
     mrp: i.mrp != null ? String(i.mrp) : '',
     cost: i.cost ? String(i.cost) : '',
-    metal_purity: i.metal_purity ?? '',
-    metal_weight_g: i.metal_weight_g ? String(i.metal_weight_g) : '',
-    stones: i.stones.map(s => ({ stone_type: s.stone_type, source: s.source, weight_ct: String(s.weight_ct) })),
     opening_qty: '',
     opening_warehouse: defaultLoc,
     reorder_level: i.reorder_level != null ? String(i.reorder_level) : '',
@@ -109,26 +95,8 @@ function validate(f: FormState, isEdit: boolean): Errors {
     e.sku = 'Use 2 to 40 letters, digits or dashes, starting with a letter or digit'
   }
 
-  const fixed = f.pricing_mode === 'Fixed MRP'
-  if (fixed) {
-    const mrp = checkNumber(f.mrp, { max: 1e8 })
-    if (mrp) e.mrp = mrp
-  } else {
-    if (!f.metal_purity) e.metal_purity = 'Choose a gold purity'
-    if (f.metal_weight_g.trim() === '') e.metal_weight_g = 'Enter the gold weight'
-    else {
-      const w = checkNumber(f.metal_weight_g, { gt: 0, max: 10000 })
-      if (w) e.metal_weight_g = w
-    }
-    f.stones.forEach((s, i) => {
-      if (!s.stone_type) e[`stone_${i}_type`] = 'Choose a stone type'
-      if (s.weight_ct.trim() === '') e[`stone_${i}_weight`] = 'Enter the weight'
-      else {
-        const w = checkNumber(s.weight_ct, { gt: 0, max: 100 })
-        if (w) e[`stone_${i}_weight`] = w
-      }
-    })
-  }
+  const mrp = checkNumber(f.mrp, { max: 1e8 })
+  if (mrp) e.mrp = mrp
   const cost = checkNumber(f.cost, { max: 1e8 })
   if (cost) e.cost = cost
 
@@ -141,30 +109,6 @@ function validate(f: FormState, isEdit: boolean): Errors {
   const rq = checkNumber(f.reorder_qty, { int: true, max: 100000 })
   if (rq) e.reorder_qty = rq
   return e
-}
-
-/** Client-side copy of computePrice() in ims-gateway/src/pricing.js (Metal Rate branch). */
-function computePreview(f: FormState, meta: Meta) {
-  const s = meta.settings
-  const weight = Number(f.metal_weight_g) || 0
-  const factor = PURITY_FACTORS[f.metal_purity] ?? PURITY_FACTORS['18K']
-  const lines: { label: string; value: number }[] = []
-  lines.push({ label: `Gold ${f.metal_purity || '18K'} · ${weight} g`, value: Math.round(weight * s.gold_rate_24k * factor) })
-
-  const missing: string[] = []
-  for (const row of f.stones) {
-    const ct = Number(row.weight_ct) || 0
-    if (!row.stone_type || ct <= 0) continue
-    const type = meta.stoneTypes.find(t => t.code === row.stone_type)
-    if (!type) { missing.push(row.stone_type); continue }
-    const rate = row.source === 'Lab-grown' ? type.lab_rate : type.natural_rate
-    lines.push({ label: `${type.label} (${row.source}) · ${ct} ct`, value: Math.round(ct * rate) })
-  }
-  lines.push({ label: 'Making charges', value: Math.round(weight * s.labour_rate_per_g) })
-
-  const subtotal = lines.reduce((sum, l) => sum + l.value, 0)
-  const tax = Math.round(subtotal * s.tax_percent / 100)
-  return { lines, subtotal, tax, total: subtotal + tax, missing }
 }
 
 const numberProps = {
@@ -181,17 +125,21 @@ const wholeProps = { ...numberProps, inputMode: 'numeric', step: 1 } as const
 
 export default function ItemFormPage() {
   const { sku } = useParams()
+  const [params] = useSearchParams()
   const isEdit = !!sku
+  // /inventory/new?from=<SKU> starts a new variant of an existing piece
+  const from = !isEdit ? params.get('from')?.trim() || undefined : undefined
+  const source = sku ?? from
   const meta = useMeta()
-  const item = useItem(sku)
+  const item = useItem(source)
 
-  if (isEdit && item.isError) {
+  if (source && item.isError) {
     if (item.error instanceof ApiError && item.error.status === 404) {
       return (
         <Empty className="border">
           <EmptyHeader>
-            <EmptyTitle>No piece with SKU {sku}</EmptyTitle>
-            <EmptyDescription>There is nothing to edit here.</EmptyDescription>
+            <EmptyTitle>No piece with SKU {source}</EmptyTitle>
+            <EmptyDescription>{isEdit ? 'There is nothing to edit here.' : 'There is nothing to copy a variant from.'}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent><Button variant="outline" asChild><Link to="/inventory">Back to Inventory</Link></Button></EmptyContent>
         </Empty>
@@ -200,9 +148,9 @@ export default function ItemFormPage() {
     return <LoadError message={(item.error as Error).message} onRetry={() => item.refetch()} />
   }
   if (meta.isError) return <LoadError message={(meta.error as Error).message} onRetry={() => meta.refetch()} />
-  if (!meta.data || (isEdit && !item.data)) return <FormSkeleton />
+  if (!meta.data || (source && !item.data)) return <FormSkeleton />
 
-  return <ItemForm key={sku ?? 'new'} meta={meta.data} detail={item.data} sku={sku} />
+  return <ItemForm key={sku ?? (from ? `new-from-${from}` : 'new')} meta={meta.data} detail={item.data} sku={sku} from={from} />
 }
 
 function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
@@ -266,20 +214,19 @@ function F({ k, label, required, error, help, className, children }: {
 
 // ---------- the form ----------
 
-function ItemForm({ meta, detail, sku }: { meta: Meta; detail?: ItemDetail; sku?: string }) {
+function ItemForm({ meta, detail, sku, from }: { meta: Meta; detail?: ItemDetail; sku?: string; from?: string }) {
   const isEdit = !!sku
+  const variantOf = !isEdit && detail ? from : undefined
+  const isVariant = !!variantOf
   const navigate = useNavigate()
   const save = useSaveItem(sku)
-  const [initial] = useState<FormState>(() => initialState(meta, detail))
+  const [initial] = useState<FormState>(() => initialState(meta, detail, isVariant))
   const [form, setForm] = useState<FormState>(initial)
   const [submitted, setSubmitted] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const errorRef = useRef<HTMLDivElement>(null)
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm(f => ({ ...f, [key]: value }))
-  const setStone = (i: number, patch: Partial<StoneRow>) => setForm(f => ({ ...f, stones: f.stones.map((s, j) => (j === i ? { ...s, ...patch } : s)) }))
-  const addStone = () => setForm(f => (f.stones.length >= MAX_STONES ? f : { ...f, stones: [...f.stones, { stone_type: '', source: 'Natural', weight_ct: '' }] }))
-  const removeStone = (i: number) => setForm(f => ({ ...f, stones: f.stones.filter((_, j) => j !== i) }))
 
   const errors = useMemo(() => validate(form, isEdit), [form, isEdit])
   const err = (k: string) => (submitted ? errors[k] : undefined)
@@ -298,8 +245,6 @@ function ItemForm({ meta, detail, sku }: { meta: Meta; detail?: ItemDetail; sku?
     gcTime: 0,
   })
 
-  const fixed = form.pricing_mode === 'Fixed MRP'
-  const preview = useMemo(() => (fixed ? null : computePreview(form, meta)), [fixed, form, meta])
   const mrpN = toNum(form.mrp)
   const costN = toNum(form.cost)
   const margin = mrpN != null && costN != null && Number.isFinite(mrpN) && Number.isFinite(costN) && mrpN > 0 ? ((mrpN - costN) / mrpN) * 100 : null
@@ -340,16 +285,9 @@ function ItemForm({ meta, detail, sku }: { meta: Meta; detail?: ItemDetail; sku?
       collection: form.collection || null,
       finish: form.finish || null,
       crystal_colour: form.crystal_colour.trim() || null,
-      pricing_mode: form.pricing_mode,
+      mrp: mrpN,
       reorder_level: toNum(form.reorder_level),
       reorder_qty: toNum(form.reorder_qty),
-      ...(fixed
-        ? { mrp: toNum(form.mrp), metal_purity: null, metal_weight_g: null, stones: [] }
-        : {
-            metal_purity: form.metal_purity,
-            metal_weight_g: Number(form.metal_weight_g),
-            stones: form.stones.map(s => ({ stone_type: s.stone_type, source: s.source, weight_ct: Number(s.weight_ct) })),
-          }),
     }
     // The gateway strips HTML from descriptions and returns a moving-average cost, so only write these back when edited.
     if (!isEdit || form.description !== initial.description) input.description = form.description.trim() || null
@@ -360,7 +298,7 @@ function ItemForm({ meta, detail, sku }: { meta: Meta; detail?: ItemDetail; sku?
       const qty = toNum(form.opening_qty)
       if (qty && qty > 0) input.opening = { warehouse: form.opening_warehouse || undefined, qty }
     }
-    const price = fixed ? (mrpN ?? 0) : (preview?.total ?? 0)
+    const price = mrpN ?? 0
 
     save.mutate(input, {
       onSuccess: res => {
@@ -382,13 +320,16 @@ function ItemForm({ meta, detail, sku }: { meta: Meta; detail?: ItemDetail; sku?
   }
 
   const s = meta.settings
-  const previewReady = !!form.metal_purity && Number(form.metal_weight_g) > 0
 
   return (
     <form onSubmit={submit} noValidate className="mx-auto max-w-3xl space-y-5">
       <PageHeader
-        title={isEdit ? 'Edit piece' : 'New piece'}
-        description={isEdit && detail ? `${detail.item.sku} · Fields marked * are required.` : 'Fields marked * are required.'}
+        title={isEdit ? 'Edit piece' : isVariant && detail ? `New variant of ${detail.item.name}` : 'New piece'}
+        description={
+          isEdit && detail ? `${detail.item.sku} · Fields marked * are required.`
+            : isVariant ? 'Same design in another finish or colour'
+              : 'Fields marked * are required.'
+        }
       />
 
       {serverError && (
@@ -448,161 +389,36 @@ function ItemForm({ meta, detail, sku }: { meta: Meta; detail?: ItemDetail; sku?
           </F>
         </div>
         <F k="crystal_colour" label="Crystal colour">
-          <Input {...ctl('crystal_colour')} value={form.crystal_colour} onChange={e => set('crystal_colour', e.target.value)} maxLength={60} autoComplete="off" />
+          <Input {...ctl('crystal_colour')} list="crystal-colours" value={form.crystal_colour} onChange={e => set('crystal_colour', e.target.value)} maxLength={60} autoComplete="off" />
+          <datalist id="crystal-colours">
+            {meta.colours.map(c => <option key={c} value={c} />)}
+          </datalist>
         </F>
         <F k="description" label="Description">
           <Textarea {...ctl('description')} value={form.description} onChange={e => set('description', e.target.value)} maxLength={2000} rows={3} />
         </F>
       </Section>
 
-      <Section title="Pricing" description="Choose how the price of this piece is worked out.">
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          value={form.pricing_mode}
-          onValueChange={v => v && set('pricing_mode', v as PricingMode)}
-          aria-label="Pricing mode"
-        >
-          <ToggleGroupItem value="Fixed MRP">Fixed MRP</ToggleGroupItem>
-          <ToggleGroupItem value="Metal Rate">Metal Rate</ToggleGroupItem>
-        </ToggleGroup>
-
-        {fixed ? (
-          <>
-            <div className="grid grid-cols-2 gap-4">
-              <F k="mrp" label="MRP (INR)" error={err('mrp')} help="Price including taxes.">
-                <InputGroup>
-                  <InputGroupAddon><InputGroupText>₹</InputGroupText></InputGroupAddon>
-                  <InputGroupInput {...numberProps} {...ctl('mrp', true)} className="tabular-nums" value={form.mrp} onChange={e => set('mrp', e.target.value)} />
-                </InputGroup>
-              </F>
-              <F k="cost" label="Unit cost (INR)" error={err('cost')} help="What one piece costs you.">
-                <InputGroup>
-                  <InputGroupAddon><InputGroupText>₹</InputGroupText></InputGroupAddon>
-                  <InputGroupInput {...numberProps} {...ctl('cost', true)} className="tabular-nums" value={form.cost} onChange={e => set('cost', e.target.value)} />
-                </InputGroup>
-              </F>
-            </div>
-            <p className="text-sm text-muted-foreground tabular-nums" aria-live="polite">
-              {margin != null && mrpN != null && costN != null
-                ? <>Margin <span className="font-medium text-foreground">{margin.toFixed(1)}%</span> ({formatINR(mrpN - costN)} per piece)</>
-                : 'Enter an MRP and a unit cost to see the margin.'}
-            </p>
-          </>
-        ) : (
-          <>
-            <div className="grid grid-cols-2 gap-4">
-              <F k="metal_purity" label="Gold purity" required error={err('metal_purity')}>
-                <Select value={form.metal_purity} onValueChange={v => set('metal_purity', v)}>
-                  <SelectTrigger {...ctl('metal_purity')} aria-required><SelectValue placeholder="Purity" /></SelectTrigger>
-                  <SelectContent>
-                    {PURITIES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </F>
-              <F k="metal_weight_g" label="Gold weight" required error={err('metal_weight_g')}>
-                <InputGroup>
-                  <InputGroupInput {...numberProps} {...ctl('metal_weight_g')} aria-required className="tabular-nums" value={form.metal_weight_g} onChange={e => set('metal_weight_g', e.target.value)} />
-                  <InputGroupAddon align="inline-end"><InputGroupText>g</InputGroupText></InputGroupAddon>
-                </InputGroup>
-              </F>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-medium">Stones <span className="font-normal text-muted-foreground tabular-nums">({form.stones.length} of {MAX_STONES})</span></div>
-                <Button type="button" variant="outline" size="sm" onClick={addStone} disabled={form.stones.length >= MAX_STONES}>
-                  <PlusIcon />Add stone
-                </Button>
-              </div>
-              {form.stones.length === 0 && (
-                <p className="text-sm text-muted-foreground">No stones. Add one if this piece has natural or lab-grown stones.</p>
-              )}
-              {form.stones.map((row, i) => (
-                <div key={i} className="space-y-3 rounded-lg border p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Stone {i + 1}</span>
-                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeStone(i)} aria-label={`Remove stone ${i + 1}`}>
-                      <Trash2Icon />
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    <F k={`stone_${i}_type`} label="Stone type" required error={err(`stone_${i}_type`)} className="col-span-2 sm:col-span-1">
-                      <Select value={row.stone_type} onValueChange={v => setStone(i, { stone_type: v })}>
-                        <SelectTrigger {...ctl(`stone_${i}_type`)} aria-required><SelectValue placeholder="Choose a stone" /></SelectTrigger>
-                        <SelectContent>
-                          {meta.stoneTypes.filter(t => t.is_active || t.code === row.stone_type).map(t => (
-                            <SelectItem key={t.code} value={t.code}>{t.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </F>
-                    <F k={`stone_${i}_source`} label="Source">
-                      <Select value={row.source} onValueChange={v => setStone(i, { source: v as StoneRow['source'] })}>
-                        <SelectTrigger id={`f-stone_${i}_source`}><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Natural">Natural</SelectItem>
-                          <SelectItem value="Lab-grown">Lab-grown</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </F>
-                    <F k={`stone_${i}_weight`} label="Weight" required error={err(`stone_${i}_weight`)}>
-                      <InputGroup>
-                        <InputGroupInput {...numberProps} {...ctl(`stone_${i}_weight`)} aria-required className="tabular-nums" value={row.weight_ct} onChange={e => setStone(i, { weight_ct: e.target.value })} />
-                        <InputGroupAddon align="inline-end"><InputGroupText>ct</InputGroupText></InputGroupAddon>
-                      </InputGroup>
-                    </F>
-                  </div>
-                </div>
-              ))}
-              {!meta.stoneTypes.some(t => t.is_active) && (
-                <p className="text-sm text-muted-foreground">No stone types are set up yet. Add them in Settings.</p>
-              )}
-            </div>
-
-            <F k="cost" label="Unit cost (INR)" error={err('cost')} help="What one piece costs you." className="sm:max-w-xs">
-              <InputGroup>
-                <InputGroupAddon><InputGroupText>₹</InputGroupText></InputGroupAddon>
-                <InputGroupInput {...numberProps} {...ctl('cost', true)} className="tabular-nums" value={form.cost} onChange={e => set('cost', e.target.value)} />
-              </InputGroup>
-            </F>
-
-            <div className="rounded-lg border bg-muted/40 p-3" aria-live="polite">
-              <div className="mb-1 text-sm font-medium">Price preview</div>
-              {preview && previewReady ? (
-                <>
-                  <ul className="divide-y text-sm">
-                    {preview.lines.map((l, i) => (
-                      <li key={i} className="flex items-start justify-between gap-4 py-1.5">
-                        <span className="min-w-0">{l.label}</span>
-                        <span className="tabular-nums">{formatINR(l.value)}</span>
-                      </li>
-                    ))}
-                    <li className="flex items-center justify-between gap-4 py-1.5 text-muted-foreground">
-                      <span>Subtotal</span><span className="tabular-nums">{formatINR(preview.subtotal)}</span>
-                    </li>
-                    <li className="flex items-center justify-between gap-4 py-1.5 text-muted-foreground">
-                      <span>Tax ({s.tax_percent}%)</span><span className="tabular-nums">{formatINR(preview.tax)}</span>
-                    </li>
-                    <li className="flex items-center justify-between gap-4 pt-2 font-semibold">
-                      <span>Total</span><span className="text-base tabular-nums">{formatINR(preview.total)}</span>
-                    </li>
-                  </ul>
-                  {preview.missing.length > 0 && (
-                    <p className="mt-2 text-sm text-destructive">No rate is set for {preview.missing.join(', ')}, so it is left out of this total.</p>
-                  )}
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">Choose a gold purity and enter the weight to see the price.</p>
-              )}
-              <p className="mt-2 text-xs text-muted-foreground tabular-nums">
-                {s.gold_rate_24k > 0
-                  ? `Uses 24K gold at ${formatINR(s.gold_rate_24k)}/g${s.gold_rate_date ? ` (${formatDate(s.gold_rate_date)})` : ''} and making at ${formatINR(s.labour_rate_per_g)}/g. The saved price follows the rate on the day.`
-                  : 'No gold rate is set yet, so gold counts as zero. Set today’s rate in Settings.'}
-              </p>
-            </div>
-          </>
-        )}
+      <Section title="Pricing" description="One fixed price for every piece, inclusive of all taxes.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <F k="mrp" label="MRP (INR, inclusive of taxes)" error={err('mrp')} help="The price the customer pays.">
+            <InputGroup>
+              <InputGroupAddon><InputGroupText>₹</InputGroupText></InputGroupAddon>
+              <InputGroupInput {...numberProps} {...ctl('mrp', true)} className="tabular-nums" value={form.mrp} onChange={e => set('mrp', e.target.value)} />
+            </InputGroup>
+          </F>
+          <F k="cost" label="Unit cost (INR)" error={err('cost')} help="What one piece costs you.">
+            <InputGroup>
+              <InputGroupAddon><InputGroupText>₹</InputGroupText></InputGroupAddon>
+              <InputGroupInput {...numberProps} {...ctl('cost', true)} className="tabular-nums" value={form.cost} onChange={e => set('cost', e.target.value)} />
+            </InputGroup>
+          </F>
+        </div>
+        <p className="text-sm text-muted-foreground tabular-nums" aria-live="polite">
+          {margin != null && mrpN != null && costN != null
+            ? <>Margin <span className="font-medium text-foreground">{margin.toFixed(1)}%</span> ({formatINR(mrpN - costN)} per piece)</>
+            : 'Enter an MRP and a unit cost to see the margin.'}
+        </p>
       </Section>
 
       {!isEdit && (
@@ -636,7 +452,7 @@ function ItemForm({ meta, detail, sku }: { meta: Meta; detail?: ItemDetail; sku?
 
       <div className="sticky bottom-0 z-10 -mx-4 flex gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 md:static md:mx-0 md:justify-end md:border-t-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
         <Button type="button" variant="outline" className="flex-1 md:flex-none" asChild>
-          <Link to={isEdit ? `/inventory/${encodeURIComponent(sku)}` : '/inventory'}>Cancel</Link>
+          <Link to={isEdit ? `/inventory/${encodeURIComponent(sku)}` : variantOf ? `/inventory/${encodeURIComponent(variantOf)}` : '/inventory'}>Cancel</Link>
         </Button>
         <Button type="submit" className="flex-1 md:flex-none" disabled={save.isPending}>
           {save.isPending && <Spinner />}

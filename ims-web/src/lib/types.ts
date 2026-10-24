@@ -1,7 +1,6 @@
 // Shapes returned by the IMS gateway (ims-gateway/src/routes/*).
 
 export type StockStatus = 'in' | 'low' | 'out'
-export type PricingMode = 'Fixed MRP' | 'Metal Rate'
 export type MovementType = 'receipt' | 'issue' | 'transfer'
 
 export interface User {
@@ -24,33 +23,22 @@ export interface LocationSummary extends Location {
   value: number
 }
 
-export interface StoneType {
-  code: string
-  label: string
-  natural_rate: number
-  lab_rate: number
-  is_active: boolean
-}
-
 export interface Settings {
   default_warehouse: string
   online_warehouse: string
-  labour_rate_per_g: number
-  tax_percent: number
   low_stock_default: number
   shopify_location_id: string
   shopify_orders_synced_until: string | null
   shopify_last_sync_log: string
-  gold_rate_24k: number
-  gold_rate_date: string | null
 }
 
 export interface Meta {
   categories: { name: string; prefix: string }[]
   collections: { name: string; is_active: boolean; launch_date: string | null }[]
   locations: Location[]
-  stoneTypes: StoneType[]
   finishes: string[]
+  /** Crystal colour suggestions; any text is allowed */
+  colours: string[]
   settings: Settings
   shopify: { enabled: boolean; shop: string }
   publicUrl: string
@@ -64,8 +52,8 @@ export interface ItemRow {
   finish: string | null
   crystal_colour: string | null
   image: string | null
-  pricing_mode: PricingMode
   mrp: number | null
+  /** Same as mrp (0 when unset); kept so sale totals can be computed without null checks */
   price: number
   cost: number
   on_hand: number
@@ -87,28 +75,6 @@ export interface ItemList {
   pageSize: number
 }
 
-export interface StoneLine {
-  stone_type: string
-  source: 'Natural' | 'Lab-grown'
-  weight_ct: number
-}
-
-export interface PriceLine {
-  label: string
-  detail?: string
-  value: number
-}
-
-export interface Price {
-  mode: PricingMode
-  lines: PriceLine[]
-  subtotal: number
-  tax: number
-  tax_percent?: number
-  total: number
-  missing_stone_rates?: string[]
-}
-
 export interface ItemDetail {
   item: {
     sku: string
@@ -119,12 +85,11 @@ export interface ItemDetail {
     crystal_colour: string | null
     description: string
     image: string | null
-    pricing_mode: PricingMode
     mrp: number | null
     cost: number
-    metal_purity: string | null
-    metal_weight_g: number
-    stones: StoneLine[]
+    /** (mrp - cost) / mrp in percent, null without an MRP */
+    margin: number | null
+    status: StockStatus
     reorder_level: number | null
     reorder_qty: number | null
     disabled: boolean
@@ -136,7 +101,6 @@ export interface ItemDetail {
     stock_value: number
   }
   stock: { warehouse: string; qty: number; value: number }[]
-  price: Price
   qr_url: string
   movements: {
     date: string
@@ -160,12 +124,8 @@ export interface ItemInput {
   finish?: string | null
   crystal_colour?: string | null
   description?: string | null
-  pricing_mode?: PricingMode
   mrp?: number | null
   cost?: number | null
-  metal_purity?: string | null
-  metal_weight_g?: number | null
-  stones?: StoneLine[]
   reorder_level?: number | null
   reorder_qty?: number | null
   disabled?: boolean
@@ -223,8 +183,6 @@ export interface Dashboard {
   attention: ItemRow[]
   top_sellers: { sku: string; name: string; units: number; image: string | null; on_hand: number }[]
   recent: { name: string; date: string; time: string; purpose: string; reason: string | null; reference: string | null; by: string; value: number }[]
-  gold_rate: { date: string; rate: number }[]
-  settings: { gold_rate_24k: number; gold_rate_date: string | null }
 }
 
 export interface CountResult {
@@ -263,10 +221,6 @@ export interface PublicItem {
   crystal_colour: string | null
   description: string
   image: string | null
-  pricing_mode: PricingMode
-  metal_purity: string | null
-  metal_weight_g: number | null
-  stones: { label: string; source: string; weight_ct: number }[]
-  price: { total: number; lines: { label: string; value: number }[]; tax: number; tax_percent: number | null }
+  mrp: number | null
   available: boolean
 }

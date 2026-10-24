@@ -3,17 +3,9 @@ import QrScanner from 'qr-scanner'
 import { CameraOffIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-/**
- * Accepts every label generation:
- *   new labels   https://<ims>/s/EAR-00012
- *   JewelQR v1.7 "EAR-00012" (bare SKU)
- *   JewelQR v1.0 {"sku":"EAR-00012",...}
- */
+/** A label holds <PUBLIC_URL>/s/<SKU>; a bare SKU (typed, or an older label) also works. */
 export function skuFromQr(text: string): string | null {
   const t = text.trim()
-  try {
-    if (t.startsWith('{')) return String(JSON.parse(t).sku || '').toUpperCase() || null
-  } catch { return null }
   const fromUrl = /\/s\/([A-Za-z0-9-]+)\/?(?:[?#].*)?$/.exec(t)
   if (fromUrl) return decodeURIComponent(fromUrl[1]).toUpperCase()
   return /^[A-Za-z0-9][A-Za-z0-9-]{1,39}$/.test(t) ? t.toUpperCase() : null

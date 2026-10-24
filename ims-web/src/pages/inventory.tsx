@@ -44,6 +44,7 @@ export default function InventoryPage() {
     collection: params.get('collection') ?? '',
     location: params.get('location') ?? '',
     stock: (params.get('stock') ?? '') as ItemFilters['stock'],
+    price: (params.get('price') ?? '') as ItemFilters['price'],
     status: (params.get('status') ?? 'active') as ItemFilters['status'],
     sort: (params.get('sort') ?? 'newest') as ItemFilters['sort'],
     page: Number(params.get('page') ?? 1),
@@ -59,7 +60,7 @@ export default function InventoryPage() {
   }
   useEffect(() => { if ((params.get('q') ?? '') !== debouncedQ) set('q', debouncedQ) }, [debouncedQ]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const filtered = Boolean(filters.q || filters.category || filters.collection || filters.location || filters.stock || filters.status !== 'active')
+  const filtered = Boolean(filters.q || filters.category || filters.collection || filters.location || filters.stock || filters.price || filters.status !== 'active')
   const pages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1
   const rows = data?.items ?? []
   const allOnPage = rows.length > 0 && rows.every(r => selected.has(r.sku))
@@ -70,8 +71,8 @@ export default function InventoryPage() {
   async function exportCsv(only?: ItemRow[]) {
     const all = only ? { items: only } : await api.get<ItemList>(`/items${qs({ ...filters, page: 1, pageSize: 500 })}`)
     const locs = meta?.locations.map(l => l.name) ?? []
-    const header = ['SKU', 'Name', 'Category', 'Collection', 'Finish', 'Crystal colour', 'Pricing', 'Price', 'Unit cost', 'On hand', ...locs.map(locationLabel), 'Stock value', 'Retail value', 'Status']
-    const lines = all.items.map(r => [r.sku, r.name, r.category, r.collection, r.finish, r.crystal_colour, r.pricing_mode, r.price, r.cost, r.on_hand, ...locs.map(l => r.stock[l] || 0), r.stock_value, r.retail_value, r.status].map(csvEscape).join(','))
+    const header = ['SKU', 'Name', 'Category', 'Collection', 'Finish', 'Crystal colour', 'MRP', 'Unit cost', 'On hand', ...locs.map(locationLabel), 'Stock value', 'Retail value', 'Status']
+    const lines = all.items.map(r => [r.sku, r.name, r.category, r.collection, r.finish, r.crystal_colour, r.mrp, r.cost, r.on_hand, ...locs.map(l => r.stock[l] || 0), r.stock_value, r.retail_value, r.status].map(csvEscape).join(','))
     const blob = new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
@@ -123,6 +124,15 @@ export default function InventoryPage() {
               {meta?.locations.map(l => <SelectItem key={l.name} value={l.name}>{l.label}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={filters.price || ALL} onValueChange={v => set('price', v)}>
+            <SelectTrigger className="w-full sm:w-36" aria-label="Price"><SelectValue placeholder="Price" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All prices</SelectItem>
+              <SelectItem value="under5k">Under ₹5k</SelectItem>
+              <SelectItem value="5to10k">₹5k to ₹10k</SelectItem>
+              <SelectItem value="over10k">Above ₹10k</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={filters.sort} onValueChange={v => set('sort', v === 'newest' ? '' : v)}>
             <SelectTrigger className="w-full sm:w-36" aria-label="Sort"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -171,7 +181,7 @@ export default function InventoryPage() {
                   <TableHead className="hidden xl:table-cell">Collection</TableHead>
                   <TableHead className="hidden 2xl:table-cell">Finish</TableHead>
                   <TableHead className="text-right">On hand</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
+                  <TableHead className="text-right">MRP</TableHead>
                   <TableHead className="hidden text-right xl:table-cell">Stock value</TableHead>
                   <TableHead className="pr-4">Status</TableHead>
                 </TableRow>
@@ -203,7 +213,7 @@ export default function InventoryPage() {
                         </TooltipContent>
                       </Tooltip>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{formatINR(r.price)}{r.pricing_mode === 'Metal Rate' && <span className="ml-1 text-xs text-muted-foreground">rate</span>}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatINR(r.mrp)}</TableCell>
                     <TableCell className="hidden text-right tabular-nums text-muted-foreground xl:table-cell">{formatINR(r.stock_value)}</TableCell>
                     <TableCell className="pr-4"><StockBadge status={r.status} /></TableCell>
                   </TableRow>

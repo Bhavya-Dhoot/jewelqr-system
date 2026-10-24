@@ -20,6 +20,9 @@ import { useDashboard } from '@/hooks/api'
 import { formatINR, formatNumber, formatRelative, locationLabel, personLabel } from '@/lib/format'
 
 const INR_COMPACT = { style: 'currency', currency: 'INR', notation: 'compact', maximumFractionDigits: 1 } as const
+const INR_FULL = { style: 'currency', currency: 'INR', maximumFractionDigits: 0 } as const
+// en-IN compact writes thousands as "T" (₹84.3T), so compact only from a lakh up, like formatINRCompact.
+const inrFormat = (v: number) => (Math.abs(v) >= 100000 ? INR_COMPACT : INR_FULL)
 const Figure = ({ value, format }: { value: number; format?: Parameters<typeof NumberFlow>[0]['format'] }) => <NumberFlow value={value} format={format} locales="en-IN" />
 
 export default function DashboardPage() {
@@ -66,8 +69,8 @@ export default function DashboardPage() {
       <section aria-label="Key figures" className="grid grid-cols-2 gap-x-6 gap-y-8 lg:grid-cols-5">
         {isLoading || !k ? Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20" />) : (
           <>
-            <Stat label="Stock value (cost)" value={<Figure value={k.stock_value} format={INR_COMPACT} />} hint="Moving average" />
-            <Stat label="Retail value" value={<Figure value={k.retail_value} format={INR_COMPACT} />} hint="At today's prices" />
+            <Stat label="Stock value (cost)" value={<Figure value={k.stock_value} format={inrFormat(k.stock_value)} />} hint="Moving average" />
+            <Stat label="Retail value" value={<Figure value={k.retail_value} format={inrFormat(k.retail_value)} />} hint="At today's prices" />
             <Stat label="Pieces on hand" value={<Figure value={k.units} />} hint={`${formatNumber(k.skus)} active SKUs`} />
             <Stat label={`Sold, last ${days} days`} value={<Figure value={k.units_sold} />} hint={formatINR(k.sales_value)} />
             <Stat

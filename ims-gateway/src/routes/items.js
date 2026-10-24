@@ -4,18 +4,11 @@ const Joi = require('joi');
 const multer = require('multer');
 const sharp = require('sharp');
 const config = require('../config');
-const { loadCatalogue, loadSettings, loadStoneTypes, ratesFor, nextSku } = require('../inventory');
-const { computePrice } = require('../pricing');
+const { loadCatalogue, loadSettings, nextSku, PRICE_BANDS } = require('../inventory');
 const { postMovement } = require('../movements');
 const { HttpError, validate, wrap } = require('../http');
 
 const router = express.Router();
-
-const stone = Joi.object({
-    stone_type: Joi.string().max(140).required(),
-    source: Joi.string().valid('Natural', 'Lab-grown').default('Natural'),
-    weight_ct: Joi.number().positive().max(100).required(),
-});
 
 const itemFields = {
     name: Joi.string().trim().min(2).max(140),
@@ -24,12 +17,8 @@ const itemFields = {
     finish: Joi.string().max(60).allow(null, ''),
     crystal_colour: Joi.string().trim().max(60).allow(null, ''),
     description: Joi.string().max(2000).allow(null, ''),
-    pricing_mode: Joi.string().valid('Fixed MRP', 'Metal Rate'),
     mrp: Joi.number().min(0).max(1e8).allow(null),
     cost: Joi.number().min(0).max(1e8).allow(null),
-    metal_purity: Joi.string().valid('24K', '22K', '18K', '14K').allow(null, ''),
-    metal_weight_g: Joi.number().min(0).max(10000).allow(null),
-    stones: Joi.array().items(stone).max(6),
     reorder_level: Joi.number().integer().min(0).max(100000).allow(null),
     reorder_qty: Joi.number().integer().min(0).max(100000).allow(null),
     disabled: Joi.boolean(),
@@ -40,11 +29,7 @@ const createSchema = Joi.object({
     sku: Joi.string().trim().uppercase().pattern(/^[A-Z0-9][A-Z0-9-]{1,39}$/).message('SKU may only contain letters, digits and dashes'),
     name: itemFields.name.required(),
     category: itemFields.category.required(),
-    pricing_mode: itemFields.pricing_mode.default('Fixed MRP'),
     opening: Joi.object({ warehouse: Joi.string().max(140), qty: Joi.number().integer().min(1).max(100000).required() }),
-}).custom((v, helpers) => {
-    if (v.pricing_mode === 'Metal Rate' && !(v.metal_weight_g > 0 && v.metal_purity)) return helpers.message('Metal Rate items need a gold purity and a gold weight above 0');
-    return v;
 });
 const updateSchema = Joi.object(itemFields).min(1);
 
@@ -58,11 +43,7 @@ function toErpItem(input, settings) {
     set('finish', 'esme_finish', v => v || '');
     set('crystal_colour', 'esme_crystal_colour', v => v || '');
     set('description', 'description', v => v || '');
-    set('pricing_mode', 'esme_pricing_mode');
     set('cost', 'valuation_rate', v => v ?? 0);
-    set('metal_purity', 'esme_metal_purity', v => v || '');
-    set('metal_weight_g', 'esme_metal_weight_g', v => v ?? 0);
-    set('stones', 'esme_stones', v => v.map(s => ({ stone_type: s.stone_type, source: s.source, weight_ct: s.weight_ct })));
     set('disabled', 'disabled', v => (v ? 1 : 0));
     if (input.reorder_level !== undefined) {
         doc.reorder_levels = input.reorder_level
@@ -87,6 +68,7 @@ const listSchema = Joi.object({
     finish: Joi.string().max(60).allow(''),
     location: Joi.string().max(140).allow(''),
     stock: Joi.string().valid('in', 'low', 'out', '').allow(''),
+    price: Joi.string().valid(...Object.keys(PRICE_BANDS), '').allow(''),
     status: Joi.string().valid('active', 'archived', 'all').default('active'),
     sort: Joi.string().valid('newest', 'name', 'sku', 'stock', 'value').default('newest'),
     page: Joi.number().integer().min(1).default(1),
@@ -104,6 +86,7 @@ router.get('/', wrap(async (req, res) => {
         && (!f.finish || r.finish === f.finish)
         && (!f.location || (r.stock[f.location] || 0) > 0)
         && (!f.stock || r.status === f.stock)
+        && (!f.price || (r.price >= PRICE_BANDS[f.price][0] && r.price < PRICE_BANDS[f.price][1]))
         && (!q || [r.sku, r.name, r.collection, r.crystal_colour, r.category].some(v => v?.toLowerCase().includes(q))));
     const sorters = {
         newest: (a, b) => (b.created > a.created ? 1 : -1),
@@ -128,12 +111,11 @@ router.get('/next-sku', wrap(async (req, res) => {
 router.get('/:sku', wrap(async (req, res) => {
     const sku = req.params.sku.toUpperCase();
     const erp = req.erp;
-    const [item, bins, prices, settings, stoneTypes, ledger] = await Promise.all([
+    const [item, bins, prices, settings, ledger] = await Promise.all([
         erp.get('Item', sku),
         erp.list('Bin', { fields: ['warehouse', 'actual_qty', 'stock_value', 'valuation_rate'], filters: [['item_code', '=', sku]], limit: 0 }),
         erp.list('Item Price', { fields: ['price_list_rate'], filters: [['item_code', '=', sku], ['price_list', '=', config.erp.sellingPriceList]], limit: 1 }),
         loadSettings(erp),
-        loadStoneTypes(erp),
         erp.list('Stock Ledger Entry', {
             fields: ['posting_date', 'posting_time', 'warehouse', 'actual_qty', 'qty_after_transaction', 'voucher_type', 'voucher_no', 'owner'],
             filters: [['item_code', '=', sku], ['is_cancelled', '=', 0]], orderBy: 'posting_date desc, posting_time desc, creation desc', limit: 50,
@@ -155,6 +137,7 @@ router.get('/:sku', wrap(async (req, res) => {
     const reorder = item.reorder_levels?.[0];
     const onHand = bins.reduce((s, b) => s + Number(b.actual_qty || 0), 0);
     const stockValue = bins.reduce((s, b) => s + Number(b.stock_value || 0), 0);
+    const cost = onHand > 0 ? Math.round((stockValue / onHand) * 100) / 100 : Number(item.valuation_rate) || 0;
     const detail = {
         sku: item.name,
         name: item.item_name,
@@ -164,12 +147,10 @@ router.get('/:sku', wrap(async (req, res) => {
         crystal_colour: item.esme_crystal_colour || null,
         description: item.description ? item.description.replace(/<[^>]+>/g, '').trim() : '',
         image: item.image || null,
-        pricing_mode: item.esme_pricing_mode || 'Fixed MRP',
         mrp,
-        cost: onHand > 0 ? Math.round((stockValue / onHand) * 100) / 100 : Number(item.valuation_rate) || 0,
-        metal_purity: item.esme_metal_purity || null,
-        metal_weight_g: Number(item.esme_metal_weight_g) || 0,
-        stones: (item.esme_stones || []).map(s => ({ stone_type: s.stone_type, source: s.source, weight_ct: Number(s.weight_ct) })),
+        cost,
+        margin: mrp ? Math.round(((mrp - cost) / mrp) * 1000) / 10 : null,
+        status: onHand <= 0 ? 'out' : onHand <= (reorder ? Number(reorder.warehouse_reorder_level) : settings.low_stock_default) ? 'low' : 'in',
         reorder_level: reorder ? Number(reorder.warehouse_reorder_level) : null,
         reorder_qty: reorder ? Number(reorder.warehouse_reorder_qty) : null,
         disabled: Boolean(item.disabled),
@@ -183,7 +164,6 @@ router.get('/:sku', wrap(async (req, res) => {
     res.json({
         item: detail,
         stock: bins.filter(b => Number(b.actual_qty) !== 0).map(b => ({ warehouse: b.warehouse, qty: Number(b.actual_qty), value: Math.round(Number(b.stock_value)) })),
-        price: computePrice(detail, ratesFor(settings, stoneTypes)),
         qr_url: `${config.publicUrl}/s/${encodeURIComponent(detail.sku)}`,
         movements: ledger.map((l, i) => ({
             date: l.posting_date, time: String(l.posting_time).slice(0, 5), warehouse: l.warehouse,

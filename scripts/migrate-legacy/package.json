@@ -1,9 +1,0 @@
-{
-  "name": "jewelqr-legacy-migration",
-  "private": true,
-  "description": "One-off: copy JewelQR v1.x (MongoDB) items, rates and photos into ERPNext",
-  "main": "migrate.js",
-  "dependencies": {
-    "mongodb": "^6.21.0"
-  }
-}

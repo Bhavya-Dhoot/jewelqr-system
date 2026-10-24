@@ -36,7 +36,6 @@ function ShopButton({ variant = 'default' }: { variant?: 'default' | 'outline' }
 }
 
 function ItemView({ item, staff }: { item: PublicItem; staff: boolean }) {
-  const metal = item.pricing_mode === 'Metal Rate'
   const facets = [
     { label: 'Collection', value: item.collection },
     { label: 'Finish', value: item.finish },
@@ -68,31 +67,12 @@ function ItemView({ item, staff }: { item: PublicItem; staff: boolean }) {
         )}
       </div>
 
-      <section aria-label="Price" className="space-y-3 rounded-xl border bg-card p-4">
-        <div>
-          <div className="text-sm text-muted-foreground">{metal ? "Today's price" : 'MRP'}</div>
-          <div className="text-4xl font-semibold tracking-tight tabular-nums">{formatINR(item.price.total)}</div>
-          <p className="text-xs text-muted-foreground">
-            {metal ? `Priced from today's metal rate${item.price.tax_percent != null ? `, includes ${item.price.tax_percent}% tax` : ''}` : 'Inclusive of all taxes'}
-          </p>
-        </div>
-        {metal && item.price.lines.length > 0 && (
-          <ul className="space-y-1.5 border-t pt-3 text-sm">
-            {item.price.lines.map((l, i) => (
-              <li key={i} className="flex items-start justify-between gap-3">
-                <span className="min-w-0 text-muted-foreground">{l.label}</span>
-                <span className="tabular-nums">{formatINR(l.value)}</span>
-              </li>
-            ))}
-            {item.price.tax > 0 && (
-              <li className="flex items-start justify-between gap-3">
-                <span className="min-w-0 text-muted-foreground">Tax{item.price.tax_percent != null ? ` (${item.price.tax_percent}%)` : ''}</span>
-                <span className="tabular-nums">{formatINR(item.price.tax)}</span>
-              </li>
-            )}
-          </ul>
-        )}
-      </section>
+      {item.mrp != null && (
+        <section aria-label="Price" className="rounded-xl border bg-card p-4">
+          <div className="text-4xl font-semibold tracking-tight tabular-nums">{formatINR(item.mrp)}</div>
+          <p className="text-xs text-muted-foreground">MRP, inclusive of all taxes</p>
+        </section>
+      )}
 
       <p className={item.available ? 'flex items-center gap-2 text-sm font-medium text-status-in' : 'flex items-center gap-2 text-sm font-medium text-muted-foreground'}>
         {item.available ? <CheckCircle2Icon className="size-4" aria-hidden /> : <ClockIcon className="size-4" aria-hidden />}

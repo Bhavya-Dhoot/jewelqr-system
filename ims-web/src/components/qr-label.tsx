@@ -46,7 +46,7 @@ export function QrLabel({ data }: { data: LabelData }) {
     <div className="flex items-center gap-4">
       <div className="size-28 shrink-0 overflow-hidden rounded-lg border bg-white p-1.5" dangerouslySetInnerHTML={{ __html: svg }} aria-label={`QR code for ${data.sku}`} role="img" />
       <div className="min-w-0 space-y-2">
-        <p className="text-xs text-muted-foreground">Scanning opens this piece. Works with older JewelQR labels too.</p>
+        <p className="text-xs text-muted-foreground">Scanning opens this piece: staff see stock, customers see the product page.</p>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={() => printLabels([data])}><PrinterIcon />Print label</Button>
           <Button size="sm" variant="outline" onClick={download}><DownloadIcon />PNG</Button>

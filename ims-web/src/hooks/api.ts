@@ -14,7 +14,6 @@ export const keys = {
   movements: (p: object) => ['movements', p] as const,
   locations: ['locations'] as const,
   counts: ['counts'] as const,
-  goldHistory: ['gold-history'] as const,
   shopify: ['shopify'] as const,
   drift: ['shopify-drift'] as const,
 }
@@ -31,6 +30,8 @@ export interface ItemFilters {
   finish?: string
   location?: string
   stock?: '' | 'in' | 'low' | 'out'
+  /** Esme price bands: under ₹5k, ₹5k-10k, over ₹10k */
+  price?: '' | 'under5k' | '5to10k' | 'over10k'
   status?: 'active' | 'archived' | 'all'
   sort?: 'newest' | 'name' | 'sku' | 'stock' | 'value'
   page?: number
@@ -60,9 +61,6 @@ export const useLocations = () =>
 
 export const useCounts = () =>
   useQuery({ queryKey: keys.counts, queryFn: () => api.get<{ counts: { name: string; date: string; by: string; difference_value: number; notes: string }[] }>('/stock/counts').then(r => r.counts) })
-
-export const useGoldHistory = () =>
-  useQuery({ queryKey: keys.goldHistory, queryFn: () => api.get<{ history: { date: string; rate: number; by: string }[] }>('/rates/history').then(r => r.history) })
 
 export const useShopifyStatus = () => useQuery({ queryKey: keys.shopify, queryFn: () => api.get<ShopifyStatus>('/shopify/status') })
 
@@ -124,6 +122,6 @@ export function useAdminMutation<TInput>(fn: (input: TInput) => Promise<unknown>
   const qc = useQueryClient()
   return useMutation({
     mutationFn: fn,
-    onSuccess: () => Promise.all(['meta', 'items', 'locations', 'gold-history', 'shopify', 'dashboard', ...alsoInvalidate].map(k => qc.invalidateQueries({ queryKey: [k] }))),
+    onSuccess: () => Promise.all(['meta', 'items', 'locations', 'shopify', 'dashboard', ...alsoInvalidate].map(k => qc.invalidateQueries({ queryKey: [k] }))),
   })
 }

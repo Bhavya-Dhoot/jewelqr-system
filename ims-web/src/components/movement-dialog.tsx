@@ -58,7 +58,7 @@ async function fetchLine(sku: string): Promise<Line | null> {
   try {
     const d = await api.get<ItemDetail>(`/items/${encodeURIComponent(sku)}`)
     return {
-      sku: d.item.sku, name: d.item.name, image: d.item.image, qty: 1, rate: d.item.cost || null, price: d.price.total,
+      sku: d.item.sku, name: d.item.name, image: d.item.image, qty: 1, rate: d.item.cost || null, price: d.item.mrp ?? 0,
       stock: Object.fromEntries(d.stock.map(s => [s.warehouse, s.qty])),
     }
   } catch {

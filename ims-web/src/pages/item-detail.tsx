@@ -2,14 +2,13 @@ import { useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import {
-  ArchiveIcon, ArchiveRestoreIcon, ArrowLeftRightIcon, CameraIcon, EllipsisIcon, PackageMinusIcon, PackagePlusIcon, PencilIcon,
-  ShoppingCartIcon, TriangleAlertIcon,
+  ArchiveIcon, ArchiveRestoreIcon, ArrowLeftRightIcon, CameraIcon, CopyPlusIcon, EllipsisIcon, PackageMinusIcon, PackagePlusIcon,
+  PencilIcon, ShoppingCartIcon,
 } from 'lucide-react'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,7 +24,7 @@ import { useArchiveItem, useItem, useMeta, useSaveItem, useUploadImage } from '@
 import { ApiError } from '@/lib/api'
 import { formatDate, formatINR, formatNumber, locationLabel, personLabel } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import type { ItemDetail, StockStatus } from '@/lib/types'
+import type { ItemDetail } from '@/lib/types'
 
 type Movement = ItemDetail['movements'][number]
 
@@ -109,7 +108,7 @@ function DetailSkeleton() {
 }
 
 function DetailView({ data }: { data: ItemDetail }) {
-  const { item, stock, price, qr_url, movements } = data
+  const { item, stock, qr_url, movements } = data
   const navigate = useNavigate()
   const { openMovement } = useMovementDialog()
   const { data: meta } = useMeta()
@@ -120,7 +119,6 @@ function DetailView({ data }: { data: ItemDetail }) {
   const [confirmArchive, setConfirmArchive] = useState(false)
 
   const reorder = item.reorder_level ?? meta?.settings.low_stock_default ?? 0
-  const status: StockStatus = item.on_hand <= 0 ? 'out' : item.on_hand <= reorder ? 'low' : 'in'
   const subtitle = [item.category, item.collection, item.finish, item.crystal_colour].filter(Boolean)
   const totalQty = stock.reduce((s, r) => s + r.qty, 0)
   const totalValue = stock.reduce((s, r) => s + r.value, 0)
@@ -152,8 +150,6 @@ function DetailView({ data }: { data: ItemDetail }) {
       },
     })
   }
-
-  const margin = item.mrp && item.mrp > 0 && item.cost > 0 ? ((item.mrp - item.cost) / item.mrp) * 100 : null
 
   return (
     <div className="space-y-5">
@@ -187,7 +183,7 @@ function DetailView({ data }: { data: ItemDetail }) {
           <div className="min-w-0 space-y-2">
             <h1 className="text-xl font-semibold tracking-tight text-balance break-words sm:text-2xl">{item.name}</h1>
             <div className="flex flex-wrap items-center gap-2">
-              <StockBadge status={status} />
+              <StockBadge status={item.status} />
               {item.disabled && <Badge variant="secondary">Archived</Badge>}
             </div>
             <p className="text-sm text-muted-foreground">
@@ -199,13 +195,14 @@ function DetailView({ data }: { data: ItemDetail }) {
 
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center xl:shrink-0 xl:flex-nowrap xl:justify-end">
           <Button variant="outline" asChild><Link to={`/inventory/${encodeURIComponent(item.sku)}/edit`}><PencilIcon />Edit</Link></Button>
+          <Button variant="outline" asChild><Link to={`/inventory/new?from=${encodeURIComponent(item.sku)}`}><CopyPlusIcon />New variant</Link></Button>
           <Button onClick={() => openMovement({ action: 'receive', sku: item.sku })}><PackagePlusIcon />Receive</Button>
           <Button variant="outline" onClick={() => openMovement({ action: 'sell', sku: item.sku })}><ShoppingCartIcon />Sell</Button>
           <Button variant="outline" onClick={() => openMovement({ action: 'move', sku: item.sku })}><ArrowLeftRightIcon />Move</Button>
           <Button variant="outline" onClick={() => openMovement({ action: 'writeoff', sku: item.sku })}><PackageMinusIcon />Write off</Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full sm:w-auto" aria-label="More actions">
+              <Button variant="outline" className="col-span-2 w-full sm:col-span-1 sm:w-auto" aria-label="More actions">
                 <EllipsisIcon /><span className="sm:sr-only">More</span>
               </Button>
             </DropdownMenuTrigger>
@@ -261,63 +258,16 @@ function DetailView({ data }: { data: ItemDetail }) {
           <Card>
             <CardHeader>
               <CardTitle>Price</CardTitle>
-              <CardDescription>{price.mode === 'Metal Rate' ? 'Worked out from today’s gold and stone rates' : 'Fixed MRP, inclusive of taxes'}</CardDescription>
+              <CardDescription>Fixed selling price and margin</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {price.mode === 'Metal Rate' && (
-                <>
-                  <Rows>
-                    <Row label="Gold purity">{item.metal_purity ?? '-'}</Row>
-                    <Row label="Gold weight">{formatNumber(item.metal_weight_g)} g</Row>
-                    <Row label="Stones">
-                      {item.stones.length ? (
-                        <span className="flex flex-col items-end gap-0.5">
-                          {item.stones.map((s, i) => (
-                            <span key={i}>{meta?.stoneTypes.find(t => t.code === s.stone_type)?.label ?? s.stone_type} ({s.source}) · {s.weight_ct} ct</span>
-                          ))}
-                        </span>
-                      ) : 'None'}
-                    </Row>
-                  </Rows>
-                  {!!price.missing_stone_rates?.length && (
-                    <Alert variant="destructive">
-                      <TriangleAlertIcon />
-                      <AlertTitle>Missing stone rates</AlertTitle>
-                      <AlertDescription>
-                        No rate is set for {price.missing_stone_rates.join(', ')}, so the total below leaves them out. Add the rates in Settings.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </>
-              )}
-
-              <ul className="divide-y text-sm">
-                {price.lines.map((l, i) => (
-                  <li key={i} className="flex items-start justify-between gap-4 py-2">
-                    <div className="min-w-0">
-                      <div>{l.label}</div>
-                      {l.detail && <div className="text-xs text-muted-foreground tabular-nums">{l.detail}</div>}
-                    </div>
-                    <span className="tabular-nums">{formatINR(l.value)}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {price.mode === 'Metal Rate' ? (
-                <Rows>
-                  <Row label="Subtotal">{formatINR(price.subtotal)}</Row>
-                  <Row label={price.tax_percent != null ? `Tax (${price.tax_percent}%)` : 'Tax'}>{formatINR(price.tax)}</Row>
-                  <Row label="Total" className="font-semibold"><span className="text-base">{formatINR(price.total)}</span></Row>
-                  <Row label="Unit cost">{formatINR(item.cost)}</Row>
-                </Rows>
-              ) : (
-                <Rows>
-                  <Row label="Unit cost">{formatINR(item.cost)}</Row>
-                  <Row label="Margin">
-                    {margin == null ? <span className="text-muted-foreground">Set an MRP and unit cost</span> : `${margin.toFixed(1)}%`}
-                  </Row>
-                </Rows>
-              )}
+            <CardContent>
+              <Rows>
+                <Row label="MRP (inclusive of taxes)" className="font-semibold">
+                  <span className="text-base">{formatINR(item.mrp)}</span>
+                </Row>
+                <Row label="Unit cost">{formatINR(item.cost)}</Row>
+                <Row label="Margin">{item.margin == null ? '-' : `${item.margin.toFixed(1)}%`}</Row>
+              </Rows>
             </CardContent>
           </Card>
         </div>
@@ -327,7 +277,7 @@ function DetailView({ data }: { data: ItemDetail }) {
           <Card>
             <CardHeader><CardTitle>QR label</CardTitle></CardHeader>
             <CardContent>
-              <QrLabel data={{ sku: item.sku, name: item.name, url: qr_url, price: price.total }} />
+              <QrLabel data={{ sku: item.sku, name: item.name, url: qr_url, price: item.mrp }} />
             </CardContent>
           </Card>
 

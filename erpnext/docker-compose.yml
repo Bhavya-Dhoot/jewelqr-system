@@ -87,6 +87,10 @@ services:
         else
           bench new-site --mariadb-user-host-login-scope='%' --admin-password=$${ERP_ADMIN_PASSWORD} --db-root-username=root --db-root-password=$${ERP_DB_ROOT_PASSWORD} --install-app erpnext --set-default frontend;
         fi;
+        if ! jq -e '.encryption_key' sites/frontend/site_config.json >/dev/null; then
+          echo "Writing the site encryption key";
+          bench --site frontend set-config encryption_key "$$(env/bin/python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')";
+        fi;
 
   db:
     image: mariadb:11.8

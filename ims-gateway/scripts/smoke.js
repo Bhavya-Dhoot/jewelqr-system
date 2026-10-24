@@ -20,7 +20,7 @@ async function api(method, path, body) {
     const stores = meta.locations.find(l => l.is_default).name;
     const studio = meta.locations.find(l => l.label === 'Studio').name;
 
-    const { sku } = await api('POST', '/api/items', { name: 'Smoke Test Hoops', category: 'Earrings', finish: 'Gold Plated', mrp: 2500, cost: 800, reorder_level: 2, opening: { qty: 10 } });
+    const { sku } = await api('POST', '/api/items', { name: 'Smoke Test Hoops', category: 'Earrings', collection: 'Prism 3.0', finish: 'Gold Plated', crystal_colour: 'Green', mrp: 2500, cost: 800, reorder_level: 2, opening: { qty: 10 } });
     console.log('created', sku);
     await api('POST', '/api/stock/movements', { type: 'receipt', reason: 'Purchase', to: stores, lines: [{ sku, qty: 5, rate: 900 }], reference: 'PO-SMOKE' });
     await api('POST', '/api/stock/movements', { type: 'transfer', reason: 'Transfer', from: stores, to: studio, lines: [{ sku, qty: 3 }] });
@@ -34,7 +34,8 @@ async function api(method, path, body) {
     assert.strictEqual(at(stores), 10);   // 10 + 5 - 3 - 2
     assert.strictEqual(at(studio), 2);    // 3 counted down to 2
     assert.strictEqual(d.item.on_hand, 12);
-    assert.strictEqual(d.price.total, 2500);
+    assert.strictEqual(d.item.mrp, 2500);
+    assert.strictEqual(d.item.margin, Math.round(((2500 - d.item.cost) / 2500) * 1000) / 10);
     console.log('balances ok: stores 10, studio 2; moving-average cost', d.item.cost);
 
     await api('POST', `/api/stock/movements/${sale.name}/cancel`);
@@ -46,9 +47,9 @@ async function api(method, path, body) {
     const dash = await api('GET', '/api/dashboard?days=30');
     assert.ok(dash.kpis.units > 0 && dash.flow.length === 30);
     const pub = await api('GET', `/api/public/items/${sku}`);
-    assert.strictEqual(pub.price.total, 2500); assert.strictEqual(pub.cost, undefined);
-    const metal = await api('GET', '/api/public/items/PND-00001').catch(() => null);
-    if (metal) console.log('metal-rate demo price', metal.price.total, metal.price.lines.map(l => `${l.label}=${l.value}`).join(' | '));
+    assert.strictEqual(pub.mrp, 2500); assert.strictEqual(pub.cost, undefined);
+    const band = await api('GET', '/api/items?price=under5k&pageSize=500');
+    assert.ok(band.items.every(r => r.price < 5000) && band.items.some(r => r.sku === sku), 'price band filter');
 
     await api('DELETE', `/api/items/${sku}`);
     console.log('archived', sku, '\nSMOKE PASS');

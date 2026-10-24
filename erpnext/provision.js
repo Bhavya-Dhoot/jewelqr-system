@@ -4,7 +4,7 @@
 // Creates the company (setup wizard), categories, locations, the custom fields and custom DocTypes
 // the IMS relies on, and a service user whose API keys the gateway uses.
 //
-//   ERP_URL=http://localhost:8085 ERP_ADMIN_PASSWORD=admin node erpnext/provision.js [--demo]
+//   ERP_URL=http://localhost:8085 ERP_ADMIN_PASSWORD=admin node erpnext/provision.js [--demo [--demo-images <dir>]]
 //
 // Safe to re-run: every step checks before it creates. --demo adds a sample catalogue + stock moves.
 
@@ -90,40 +90,8 @@ const DOCTYPES = [
         permissions: perms(['Stock Manager', 'Item Manager', 'System Manager']),
     },
     {
-        name: 'Esme Stone Type', autoname: 'field:stone_code', title_field: 'label',
-        fields: [
-            { fieldname: 'stone_code', label: 'Code', fieldtype: 'Data', reqd: 1, unique: 1, in_list_view: 1 },
-            { fieldname: 'label', label: 'Label', fieldtype: 'Data', reqd: 1, in_list_view: 1 },
-            { fieldname: 'natural_rate', label: 'Natural Rate / ct', fieldtype: 'Currency', in_list_view: 1 },
-            { fieldname: 'lab_rate', label: 'Lab-grown Rate / ct', fieldtype: 'Currency', in_list_view: 1 },
-            { fieldname: 'is_active', label: 'Active', fieldtype: 'Check', default: '1' },
-        ],
-        permissions: perms(['Stock Manager', 'System Manager']),
-        track_changes: 1,
-    },
-    {
-        name: 'Esme Stone Line', istable: 1, editable_grid: 1,
-        fields: [
-            { fieldname: 'stone_type', label: 'Stone Type', fieldtype: 'Link', options: 'Esme Stone Type', reqd: 1, in_list_view: 1 },
-            { fieldname: 'source', label: 'Source', fieldtype: 'Select', options: 'Natural\nLab-grown', default: 'Natural', in_list_view: 1 },
-            { fieldname: 'weight_ct', label: 'Weight (ct)', fieldtype: 'Float', precision: '3', reqd: 1, in_list_view: 1 },
-        ],
-        permissions: [],
-    },
-    {
-        name: 'Esme Gold Rate', autoname: 'hash', sort_field: 'rate_date',
-        fields: [
-            { fieldname: 'rate_date', label: 'Date', fieldtype: 'Date', reqd: 1, in_list_view: 1, default: 'Today' },
-            { fieldname: 'rate_24k', label: '24K Rate / g', fieldtype: 'Currency', reqd: 1, in_list_view: 1 },
-            { fieldname: 'note', label: 'Note', fieldtype: 'Data' },
-        ],
-        permissions: perms(['Stock Manager', 'System Manager']),
-    },
-    {
         name: 'Esme Settings', issingle: 1,
         fields: [
-            { fieldname: 'labour_rate_per_g', label: 'Making Charge / g', fieldtype: 'Currency', default: '500' },
-            { fieldname: 'tax_percent', label: 'Tax %', fieldtype: 'Percent', default: '3' },
             { fieldname: 'low_stock_default', label: 'Default Low-stock Level', fieldtype: 'Int', default: '2' },
             { fieldname: 'default_warehouse', label: 'Default Location', fieldtype: 'Link', options: 'Warehouse' },
             { fieldname: 'online_warehouse', label: 'Shopify Location (Warehouse)', fieldtype: 'Link', options: 'Warehouse' },
@@ -157,14 +125,9 @@ const CUSTOM_FIELDS = [
     // Item: jewellery attributes
     { dt: 'Item', fieldname: 'esme_section', label: 'Jewellery', fieldtype: 'Section Break', insert_after: 'description', collapsible: 0 },
     { dt: 'Item', fieldname: 'esme_collection', label: 'Collection', fieldtype: 'Link', options: 'Esme Collection', insert_after: 'esme_section', in_standard_filter: 1 },
-    { dt: 'Item', fieldname: 'esme_finish', label: 'Finish', fieldtype: 'Select', options: '\nGold Plated\nRose Gold Plated\nSilver Plated\nRhodium Plated\nGunmetal\nTwo-tone\nOxidised\nSolid Gold\nSterling Silver', insert_after: 'esme_collection', in_standard_filter: 1 },
+    { dt: 'Item', fieldname: 'esme_finish', label: 'Finish', fieldtype: 'Select', options: '\nGold Plated\nRose Gold Plated\nSilver Plated\nGunmetal\nTwo-tone', insert_after: 'esme_collection', in_standard_filter: 1 },
     { dt: 'Item', fieldname: 'esme_crystal_colour', label: 'Crystal Colour', fieldtype: 'Data', insert_after: 'esme_finish' },
-    { dt: 'Item', fieldname: 'esme_col_break', fieldtype: 'Column Break', insert_after: 'esme_crystal_colour' },
-    { dt: 'Item', fieldname: 'esme_pricing_mode', label: 'Pricing Mode', fieldtype: 'Select', options: 'Fixed MRP\nMetal Rate', default: 'Fixed MRP', insert_after: 'esme_col_break' },
-    { dt: 'Item', fieldname: 'esme_metal_purity', label: 'Gold Purity', fieldtype: 'Select', options: '\n24K\n22K\n18K\n14K', insert_after: 'esme_pricing_mode', depends_on: 'eval:doc.esme_pricing_mode=="Metal Rate"' },
-    { dt: 'Item', fieldname: 'esme_metal_weight_g', label: 'Gold Weight (g)', fieldtype: 'Float', precision: '3', insert_after: 'esme_metal_purity', depends_on: 'eval:doc.esme_pricing_mode=="Metal Rate"' },
-    { dt: 'Item', fieldname: 'esme_stones', label: 'Stones', fieldtype: 'Table', options: 'Esme Stone Line', insert_after: 'esme_metal_weight_g', depends_on: 'eval:doc.esme_pricing_mode=="Metal Rate"' },
-    { dt: 'Item', fieldname: 'esme_shopify_section', label: 'Shopify', fieldtype: 'Section Break', insert_after: 'esme_stones', collapsible: 1 },
+    { dt: 'Item', fieldname: 'esme_shopify_section', label: 'Shopify', fieldtype: 'Section Break', insert_after: 'esme_crystal_colour', collapsible: 1 },
     { dt: 'Item', fieldname: 'esme_shopify_variant_id', label: 'Shopify Variant ID', fieldtype: 'Data', insert_after: 'esme_shopify_section', read_only: 1 },
     { dt: 'Item', fieldname: 'esme_shopify_inventory_item_id', label: 'Shopify Inventory Item ID', fieldtype: 'Data', insert_after: 'esme_shopify_variant_id', read_only: 1 },
     // Item Group = category. Prefix drives auto SKUs (EAR-00001).
@@ -189,16 +152,16 @@ async function ensureCustomFields() {
 
 // ---------- masters ----------
 
+// Esme Crystal's categories (esmecrystal.com navigation). The prefix gives each new piece its SKU.
 const CATEGORIES = [
     ['Earrings', 'EAR'], ['Ear Cuffs', 'ECF'], ['Necklaces', 'NCK'], ['Pendants', 'PND'], ['Rings', 'RNG'],
-    ['Bracelets', 'BRC'], ['Bangles', 'BNG'], ['Chains', 'CHN'], ['Brooches', 'BRH'], ['Bag Charms', 'BCH'],
-    ['Watch Charms', 'WCH'], ['Lapel Pins', 'LPN'], ['Cufflinks', 'CFL'], ['Sets', 'SET'], ['Others', 'OTH'],
+    ['Bracelets', 'BRC'], ['Brooches', 'BRH'], ['Bag Charms', 'BCH'], ['Watch Charms', 'WCH'], ['Lapel Pins', 'LPN'],
+    ['Cufflinks', 'CFL'], ['Button Covers', 'BTC'], ['Jewellery Sets', 'SET'], ["Men's Jewellery", 'MEN'], ['Accessories', 'ACC'],
 ];
+const COLLECTIONS = ['Tyohaar Edit', 'Origin', 'Prism 3.0', 'Un-Titled', 'The Daily Edit', 'Eye-Conic', 'A Summer Song', 'Rhythm',
+    'Minimus', "Darlin'", 'Elements', 'Unshaped', 'La Fleur', 'Like Wildflowers', 'Limited Edition'];
 const LOCATIONS = ['Online Store', 'Studio', 'Exhibition', 'Damaged'];
-const STONES = [
-    ['solitaire', 'Solitaire', 100000, 50000], ['rd', 'RD', 50000, 25000], ['mq', 'MQ', 45000, 22500],
-    ['moti', 'Moti', 40000, 20000], ['pear', 'Pear', 42000, 21000], ['round', 'Round', 38000, 19000],
-];
+
 
 async function ensureMasters() {
     const root = 'Jewellery';
@@ -220,19 +183,12 @@ async function ensureMasters() {
         }
     }
 
-    for (const [code, label, natural, lab] of STONES) {
-        await upsert({ doctype: 'Esme Stone Type', stone_code: code, label, natural_rate: natural, lab_rate: lab, is_active: 1 }, code);
-    }
-    if (!(await list('Esme Gold Rate', [], ['name'], 1)).length) {
-        await insert({ doctype: 'Esme Gold Rate', rate_date: new Date().toISOString().slice(0, 10), rate_24k: 6500, note: 'Initial rate (JewelQR default) - update to today\'s rate' });
-    }
+    for (const c of COLLECTIONS) if (await upsert({ doctype: 'Esme Collection', collection_name: c, is_active: 1 }, c) === 'created') log('collection:', c);
 
     const settings = await get('Esme Settings', 'Esme Settings');
     const patch = {};
     if (!settings?.default_warehouse) patch.default_warehouse = `Stores - ${ABBR}`;
     if (!settings?.online_warehouse) patch.online_warehouse = `Online Store - ${ABBR}`;
-    if (!settings?.labour_rate_per_g) patch.labour_rate_per_g = 500;
-    if (settings?.tax_percent == null || settings?.tax_percent === 0) patch.tax_percent = 3;
     if (!settings?.low_stock_default) patch.low_stock_default = 2;
     if (Object.keys(patch).length) await update('Esme Settings', 'Esme Settings', patch);
 
@@ -289,17 +245,18 @@ async function ensureServiceUser() {
 // a write-off, a count) so the dashboard has something to show. Deterministic: same data every run.
 
 const DEMO_ITEMS = [
-    // sku, name, category, collection, finish, colour, cost, mrp, reorder level, opening qty
-    ['EAR-00001', 'Prism Drop Earrings', 'Earrings', 'Prism 3.0', 'Gold Plated', 'Clear', 1450, 4200, 3, 18],
-    ['EAR-00002', 'Fleur Stud Earrings', 'Earrings', 'La Fleur', 'Rose Gold Plated', 'Blush Pink', 900, 2600, 4, 24],
-    ['EAR-00003', 'Prism Hoop Earrings', 'Earrings', 'Prism 3.0', 'Silver Plated', 'Aurora', 1200, 3500, 3, 12],
-    ['NCK-00001', 'Minimus Solitaire Necklace', 'Necklaces', 'Minimus', 'Silver Plated', 'Clear', 1100, 3200, 3, 14],
-    ['NCK-00002', 'Tyohaar Statement Necklace', 'Necklaces', 'Tyohaar Edit', 'Gold Plated', 'Emerald', 3000, 8800, 2, 6],
-    ['RNG-00001', 'Prism Cocktail Ring', 'Rings', 'Prism 3.0', 'Rhodium Plated', 'Sapphire', 800, 2400, 3, 16],
-    ['BRC-00001', 'Fleur Tennis Bracelet', 'Bracelets', 'La Fleur', 'Rose Gold Plated', 'Clear', 1700, 4900, 2, 8],
-    ['BCH-00001', 'Minimus Bag Charm', 'Bag Charms', 'Minimus', 'Gunmetal', 'Jet', 600, 1800, 5, 22],
-    ['ECF-00001', 'Tyohaar Ear Cuff', 'Ear Cuffs', 'Tyohaar Edit', 'Gold Plated', 'Ruby', 700, 2100, 3, 7],
-    ['PND-00001', 'Minimus Drop Pendant', 'Pendants', 'Minimus', 'Gold Plated', 'Clear', 950, 2800, 3, 15],
+    // Real Esme Crystal designs and MRPs (esmecrystal.com); costs and quantities are sample values.
+    // sku, name, category, collection, finish, crystal colour, cost, mrp, reorder level, opening qty
+    ['EAR-00001', 'Sage Drop Earrings', 'Earrings', 'Prism 3.0', 'Gold Plated', 'Green', 1050, 2999, 4, 18],
+    ['EAR-00002', 'The Colette Earrings', 'Earrings', 'The Daily Edit', 'Gold Plated', 'Clear', 1400, 4080, 3, 14],
+    ['EAR-00003', 'Evil Eye Dangler', 'Earrings', 'Rhythm', 'Gold Plated', 'Blue', 1600, 4700, 3, 10],
+    ['ECF-00001', 'Cadenza Magnetic Earcuffs', 'Ear Cuffs', 'Origin', 'Gold Plated', 'Pearl', 950, 2800, 3, 12],
+    ['NCK-00001', 'Ciela Mesh Necklace', 'Necklaces', 'Origin', 'Gold Plated', 'Clear', 1050, 3100, 3, 12],
+    ['PND-00001', 'Tova Pendant', 'Pendants', 'Prism 3.0', 'Gold Plated', 'Green', 1200, 3600, 3, 15],
+    ['RNG-00001', 'Elio Rings', 'Rings', 'Prism 3.0', 'Gold Plated', 'Pink', 1150, 3400, 3, 16],
+    ['RNG-00002', 'Lunelle Drop Stack', 'Rings', 'The Daily Edit', 'Gold Plated', 'Clear', 2100, 6000, 2, 6],
+    ['BRC-00001', 'Oryn Bracelet', 'Bracelets', 'Prism 3.0', 'Gold Plated', 'Multicolour', 1250, 3700, 2, 8],
+    ['BRH-00001', 'Masquerade Mask Brooch', 'Brooches', 'The Daily Edit', 'Gold Plated', '', 1000, 3000, 2, 7],
 ];
 
 function rng(seed) {
@@ -312,10 +269,16 @@ function rng(seed) {
 }
 const dayIso = offset => new Date(Date.now() + offset * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Asia/Kolkata' });
 
-async function uploadImage(sku, file) {
+// Product photos are not in the repo: pass --demo-images <dir> with <SKU>.jpg files to attach them.
+const IMAGES_ARG = process.argv.indexOf('--demo-images');
+const DEMO_IMAGES = IMAGES_ARG > 0 ? process.argv[IMAGES_ARG + 1] : process.env.ERP_DEMO_IMAGES;
+
+async function uploadImage(sku) {
     const fs = require('node:fs'), path = require('node:path');
+    const file = DEMO_IMAGES && path.join(DEMO_IMAGES, `${sku}.jpg`);
+    if (!file || !fs.existsSync(file)) return;
     const form = new FormData();
-    form.append('file', new Blob([fs.readFileSync(path.join(__dirname, 'demo-images', file))], { type: 'image/webp' }), `${sku}.webp`);
+    form.append('file', new Blob([fs.readFileSync(file)], { type: 'image/jpeg' }), `${sku}.jpg`);
     for (const [k, v] of Object.entries({ is_private: '0', doctype: 'Item', docname: sku, fieldname: 'image' })) form.append(k, v);
     const res = await fetch(`${ERP_URL}/api/method/upload_file`, { method: 'POST', headers: { Cookie: `sid=${sid}`, Accept: 'application/json' }, body: form });
     const url = (await res.json()).message?.file_url;
@@ -332,28 +295,20 @@ async function demo() {
         await insert({ doctype: 'User', email, first_name: first, user_type: 'System User', send_welcome_email: 0, new_password: pwd, roles: roles.map(role => ({ role })) });
         log('demo user:', email);
     }
-    for (const c of ['Prism 3.0', 'La Fleur', 'Minimus', 'Tyohaar Edit']) await upsert({ doctype: 'Esme Collection', collection_name: c, is_active: 1 }, c);
     if (await get('Item', 'EAR-00001')) return log('demo catalogue already present');
 
     const stores = `Stores - ${ABBR}`, online = `Online Store - ${ABBR}`;
     for (const [code, name, group, collection, finish, colour, cost, mrp, reorder] of DEMO_ITEMS) {
         await insert({
             doctype: 'Item', item_code: code, item_name: name, item_group: group, stock_uom: 'Nos', is_stock_item: 1, valuation_method: 'Moving Average',
-            valuation_rate: cost, esme_collection: collection, esme_finish: finish, esme_crystal_colour: colour, esme_pricing_mode: 'Fixed MRP',
-            description: `${finish} piece set with ${colour.toLowerCase()} crystals. Sample data.`,
+            valuation_rate: cost, esme_collection: collection, esme_finish: finish, esme_crystal_colour: colour,
+            description: `${collection} collection, ${finish.toLowerCase()}${colour ? ` with ${colour.toLowerCase()} crystals` : ''}. Sample data.`,
             barcodes: [{ barcode: code }],
             reorder_levels: [{ warehouse: stores, warehouse_reorder_level: reorder, warehouse_reorder_qty: reorder * 4, material_request_type: 'Purchase' }],
         });
         await insert({ doctype: 'Item Price', item_code: code, price_list: 'Standard Selling', price_list_rate: mrp });
+        await uploadImage(code);
     }
-    await insert({
-        doctype: 'Item', item_code: 'RNG-00002', item_name: '18K Diamond Halo Ring', item_group: 'Rings', stock_uom: 'Nos', is_stock_item: 1,
-        valuation_method: 'Moving Average', valuation_rate: 52000, esme_pricing_mode: 'Metal Rate', esme_metal_purity: '18K', esme_metal_weight_g: 4.6,
-        description: 'Sample of a gold and diamond piece priced from the rates of the day.',
-        esme_stones: [{ stone_type: 'round', source: 'Natural', weight_ct: 0.62 }, { stone_type: 'rd', source: 'Lab-grown', weight_ct: 0.35 }],
-        barcodes: [{ barcode: 'RNG-00002' }],
-    });
-    await uploadImage('RNG-00002', 'halo-ring.webp');
 
     // 30 days of history, posted in date order so ERPNext never has to repost.
     const rand = rng(7), bal = {}, add = (wh, sku, q) => { bal[wh] ??= {}; bal[wh][sku] = (bal[wh][sku] || 0) + q; };
@@ -368,21 +323,21 @@ async function demo() {
         lines.forEach(([sku, qty]) => { add(stores, sku, -qty); add(online, sku, qty); });
     };
 
-    await receipt(-30, 'Opening Stock', 'OPENING-2026', '', [...DEMO_ITEMS.map(r => [r[0], r[9], r[6]]), ['RNG-00002', 1, 52000]]);
-    await transfer(-29, [['EAR-00001', 4], ['EAR-00002', 5], ['NCK-00001', 3], ['RNG-00001', 4], ['BCH-00001', 6], ['PND-00001', 3]]);
+    await receipt(-30, 'Opening Stock', 'OPENING-2026', '', DEMO_ITEMS.map(r => [r[0], r[9], r[6]]));
+    await transfer(-29, [['EAR-00001', 4], ['EAR-00002', 4], ['NCK-00001', 3], ['RNG-00001', 4], ['PND-00001', 3], ['ECF-00001', 3]]);
     let bill = 1040, order = 2210;
     for (let day = -28; day <= 0; day++) {
-        if (day === -18) await receipt(day, 'Purchase', 'PO-0412', 'Jaipur workshop', [['EAR-00001', 10, 1520], ['RNG-00001', 8, 820], ['BCH-00001', 12, 610]]);
-        if (day === -14) await transfer(day, [['EAR-00001', 4], ['EAR-00003', 3], ['BRC-00001', 2], ['RNG-00001', 3]]);
+        if (day === -18) await receipt(day, 'Purchase', 'PO-0412', 'Jaipur workshop', [['EAR-00001', 10, 1080], ['RNG-00001', 8, 1180], ['PND-00001', 6, 1230]]);
+        if (day === -14) await transfer(day, [['EAR-00001', 4], ['EAR-00003', 3], ['BRC-00001', 2], ['RNG-00002', 2]]);
         if (day === -7) {
-            await entry(day, '17:20:00', { stock_entry_type: 'Material Issue', purpose: 'Material Issue', esme_reason: 'Damaged', esme_reference: 'QC-0021', items: [{ item_code: 'ECF-00001', qty: 1, s_warehouse: stores }] });
-            add(stores, 'ECF-00001', -1);
+            await entry(day, '17:20:00', { stock_entry_type: 'Material Issue', purpose: 'Material Issue', esme_reason: 'Damaged', esme_reference: 'QC-0021', items: [{ item_code: 'BRH-00001', qty: 1, s_warehouse: stores }] });
+            add(stores, 'BRH-00001', -1);
         }
         // Store sales (busier at weekends), then online orders.
         const weekend = [0, 6].includes(new Date(Date.now() + day * 86400000).getDay());
         for (const [wh, reason, n] of [[stores, 'Sale - Store', Math.floor(rand() * (weekend ? 4 : 2.6))], [online, 'Sale - Online', Math.floor(rand() * 2.4)]]) {
             for (let k = 0; k < n; k++) {
-                const pool = Object.entries(bal[wh] || {}).filter(([sku, q]) => q > 0 && sku !== 'RNG-00002');
+                const pool = Object.entries(bal[wh] || {}).filter(([, q]) => q > 0);
                 if (!pool.length) break;
                 const [sku] = pool[Math.floor(rand() * pool.length)];
                 const qty = rand() < 0.15 && bal[wh][sku] > 1 ? 2 : 1;
@@ -396,18 +351,14 @@ async function demo() {
             }
         }
         if (day === -3) {
-            const counted = Math.max(0, (bal[stores]['BCH-00001'] || 0) - 1);
+            const counted = Math.max(0, (bal[stores]['ECF-00001'] || 0) - 1);
             await insert({
                 doctype: 'Stock Reconciliation', company: COMPANY, purpose: 'Stock Reconciliation', docstatus: 1, posting_date: dayIso(day), posting_time: '18:00:00',
-                set_posting_time: 1, esme_notes: 'Monthly shelf count', items: [{ item_code: 'BCH-00001', warehouse: stores, qty: counted, valuation_rate: costOf['BCH-00001'] }],
+                set_posting_time: 1, esme_notes: 'Monthly shelf count', items: [{ item_code: 'ECF-00001', warehouse: stores, qty: counted, valuation_rate: costOf['ECF-00001'] }],
             });
-            bal[stores]['BCH-00001'] = counted;
+            bal[stores]['ECF-00001'] = counted;
         }
     }
-    for (const [day, rate] of [[-14, 12880], [-7, 13040]]) await insert({ doctype: 'Esme Gold Rate', rate_date: dayIso(day), rate_24k: rate, note: 'Sample rate' });
-    const today = (await list('Esme Gold Rate', [['rate_date', '=', dayIso(0)]], ['name']))[0];
-    if (today) await update('Esme Gold Rate', today.name, { rate_24k: 13150 });
-    else await insert({ doctype: 'Esme Gold Rate', rate_date: dayIso(0), rate_24k: 13150, note: 'Sample rate' });
     log('demo catalogue + 30 days of sample history created');
 }
 

@@ -28,7 +28,7 @@ export default function LocationsPage() {
   const [label, setLabel] = useState('')
 
   const addLocation = useAdminMutation((name: string) => api.post('/locations', { label: name }))
-  const setRole = useAdminMutation(({ key, name }: { key: Role; name: string }) => api.put('/rates', { [key]: name }))
+  const setRole = useAdminMutation(({ key, name }: { key: Role; name: string }) => api.put('/settings', { [key]: name }))
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()

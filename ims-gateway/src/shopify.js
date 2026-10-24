@@ -228,7 +228,8 @@ const VARIANTS_QUERY = `query variants($after: String, $loc: ID!) {
   productVariants(first: 100, after: $after) {
     nodes {
       id sku title price
-      product { title productType status featuredMedia { preview { image { url } } } }
+      selectedOptions { name value }
+      product { title productType tags status featuredMedia { preview { image { url } } } }
       inventoryItem { id tracked unitCost { amount } inventoryLevel(locationId: $loc) { quantities(names: ["available"]) { name quantity } } }
     }
     pageInfo { hasNextPage endCursor }
@@ -246,46 +247,84 @@ async function fetchVariants(locationId) {
     return out;
 }
 
+// How Esme's Shopify catalogue maps onto IMS pieces. Most variants carry no SKU and one "Color" option
+// that holds either the plating (Gold, Silver, Rose gold, Gunmetal) or the crystal colour (Green, Pink...).
+const CATEGORY_WORDS = [
+    ['ear cuff', 'Ear Cuffs'], ['earcuff', 'Ear Cuffs'], ['earring', 'Earrings'], ['dangler', 'Earrings'], ['jhumka', 'Earrings'], ['stud', 'Earrings'], ['hoop', 'Earrings'],
+    ['bag charm', 'Bag Charms'], ['keychain', 'Bag Charms'], ['watch charm', 'Watch Charms'], ['lapel', 'Lapel Pins'], ['cufflink', 'Cufflinks'],
+    ['button cover', 'Button Covers'], ['brooch', 'Brooches'], ['pendant', 'Pendants'],
+    ['necklace', 'Necklaces'], ['neckpiece', 'Necklaces'], ['choker', 'Necklaces'], ['lariat', 'Necklaces'], ['chain', 'Necklaces'],
+    ['bracelet', 'Bracelets'], ['bangle', 'Bracelets'], ['kada', 'Bracelets'], ['ring', 'Rings'], ['stack', 'Rings'],
+    ['jewellery set', 'Jewellery Sets'], ['jewelry set', 'Jewellery Sets'], ['set', 'Jewellery Sets'], ['combo', 'Jewellery Sets'], ['men', "Men's Jewellery"],
+];
+const FINISH_WORDS = [['rose gold', 'Rose Gold Plated'], ['gunmetal', 'Gunmetal'], ['two tone', 'Two-tone'], ['two-tone', 'Two-tone'], ['silver', 'Silver Plated'], ['gold', 'Gold Plated']];
+const IGNORE_VALUES = /^(default title|product style|as shown)$/i;
+const norm = t => String(t || '').toLowerCase().replace(/['’]/g, '').replace(/\bcollection\b/g, '').replace(/\s+/g, ' ').trim();
+const titleCase = t => t.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+
+/** Pure mapping of one Shopify variant (GraphQL shape) to IMS fields. `categories` and `collections` are the IMS names. */
+function mapVariant(v, { categories, collections }) {
+    const sources = [v.product.productType, v.product.title, (v.product.tags || []).join(' ')].map(x => String(x || '').toLowerCase());
+    let category = 'Accessories';
+    outer: for (const src of sources) for (const [w, c] of CATEGORY_WORDS) if (src.includes(w) && categories.includes(c)) { category = c; break outer; }
+    const tags = (v.product.tags || []).map(norm);
+    const collection = collections.find(c => tags.some(t => t === norm(c) || t.includes(norm(c)))) || null;
+    let finish = '', colour = '';
+    const extra = [];
+    for (const o of v.selectedOptions || [{ name: 'Color', value: v.title }]) {
+        const value = String(o.value || '').trim();
+        if (!value || IGNORE_VALUES.test(value)) continue;
+        if (/colou?r/i.test(o.name)) {
+            const f = FINISH_WORDS.find(([w]) => value.toLowerCase().includes(w));
+            if (f) finish = f[1]; else colour = titleCase(value);
+        } else extra.push(value);
+    }
+    const label = [...extra, colour || (finish && finish.replace(' Plated', ''))].filter(Boolean).join(' / ');
+    return { name: (label ? `${v.product.title} - ${label}` : v.product.title).slice(0, 140), category, collection, finish, colour };
+}
+
 const available = v => v.inventoryItem?.inventoryLevel?.quantities?.find(q => q.name === 'available')?.quantity ?? 0;
 
 async function importCatalogue(erp, { createMissing = true, importStock = true } = {}) {
     const { postMovement } = require('./movements');
+    const { nextSkuFrom } = require('./inventory');
     const s = await syncSettings(erp);
     if (!s.locationId || !s.warehouse) throw new HttpError(422, 'Choose the Shopify location and the IMS online warehouse first');
-    const [variants, items, groups] = await Promise.all([
+    const [variants, items, groups, cols] = await Promise.all([
         fetchVariants(s.locationId),
         erp.list('Item', { fields: ['name', 'esme_shopify_inventory_item_id'], limit: 0 }),
-        erp.list('Item Group', { fields: ['name'], filters: [['parent_item_group', '=', 'Jewellery']], limit: 0 }),
+        erp.list('Item Group', { fields: ['name', 'esme_sku_prefix'], filters: [['parent_item_group', '=', 'Jewellery']], limit: 0 }),
+        erp.list('Esme Collection', { fields: ['name'], limit: 0 }),
     ]);
-    const existing = new Map(items.map(i => [i.name, i]));
-    const categoryFor = type => {
-        const t = (type || '').toLowerCase().replace(/s$/, '');
-        return groups.find(g => g.name.toLowerCase().replace(/s$/, '') === t)?.name || 'Others';
-    };
+    const bySku = new Map(items.map(i => [i.name, i]));
+    const byInv = new Map(items.filter(i => i.esme_shopify_inventory_item_id).map(i => [i.esme_shopify_inventory_item_id, i.name]));
+    const codes = items.map(i => i.name);
+    const prefixOf = Object.fromEntries(groups.map(g => [g.name, g.esme_sku_prefix || g.name.slice(0, 3).toUpperCase()]));
+    const ctx = { categories: groups.map(g => g.name), collections: cols.map(c => c.name) };
     const report = { variants: variants.length, linked: 0, created: 0, stocked: 0, skipped: [] };
     const opening = [];
 
     for (const v of variants) {
-        const sku = (v.sku || '').trim().toUpperCase();
         const invId = v.inventoryItem?.id?.split('/').pop();
-        if (!sku) { report.skipped.push(`${v.product.title} / ${v.title}: no SKU in Shopify`); continue; }
-        if (!/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(sku)) { report.skipped.push(`${sku}: SKU has characters the IMS does not allow`); continue; }
-        if (!v.inventoryItem?.tracked) { report.skipped.push(`${sku}: inventory not tracked in Shopify`); continue; }
+        if (!v.inventoryItem?.tracked) { report.skipped.push(`${v.product.title} / ${v.title}: inventory not tracked in Shopify`); continue; }
+        if (byInv.has(invId)) continue;                                        // already linked on an earlier import
         const link = { esme_shopify_variant_id: v.id.split('/').pop(), esme_shopify_inventory_item_id: invId };
-        const item = existing.get(sku);
-        if (item) {
-            if (item.esme_shopify_inventory_item_id !== invId) { await erp.update('Item', sku, link); report.linked++; }
-        } else if (createMissing) {
-            const title = v.title && v.title !== 'Default Title' ? `${v.product.title} - ${v.title}` : v.product.title;
-            await erp.insert({
-                doctype: 'Item', item_code: sku, item_name: title.slice(0, 140), item_group: categoryFor(v.product.productType),
-                stock_uom: 'Nos', is_stock_item: 1, valuation_method: 'Moving Average', valuation_rate: Number(v.inventoryItem.unitCost?.amount) || 0,
-                image: v.product.featuredMedia?.preview?.image?.url || '', esme_pricing_mode: 'Fixed MRP', barcodes: [{ barcode: sku }], ...link,
-            });
-            await erp.insert({ doctype: 'Item Price', item_code: sku, price_list: config.erp.sellingPriceList, price_list_rate: Number(v.price) || 0 });
-            report.created++;
-            if (importStock && available(v) > 0) opening.push({ sku, qty: available(v), rate: Number(v.inventoryItem.unitCost?.amount) || 0 });
-        }
+        const own = (v.sku || '').trim().toUpperCase();
+        if (own && bySku.has(own)) { await erp.update('Item', own, link); report.linked++; continue; }
+        if (!createMissing) continue;
+        const m = mapVariant(v, ctx);
+        // Esme's variants mostly have no SKU: give them one from the category prefix (EAR-00012) and link by inventory item.
+        const sku = /^[A-Z0-9][A-Z0-9-]{1,39}$/.test(own) ? own : nextSkuFrom(prefixOf[m.category] || 'ACC', codes);
+        codes.push(sku);
+        await erp.insert({
+            doctype: 'Item', item_code: sku, item_name: m.name, item_group: m.category, stock_uom: 'Nos', is_stock_item: 1,
+            valuation_method: 'Moving Average', valuation_rate: Number(v.inventoryItem.unitCost?.amount) || 0,
+            image: v.product.featuredMedia?.preview?.image?.url || '', esme_collection: m.collection, esme_finish: m.finish,
+            esme_crystal_colour: m.colour, barcodes: [{ barcode: sku }], ...link,
+        });
+        await erp.insert({ doctype: 'Item Price', item_code: sku, price_list: config.erp.sellingPriceList, price_list_rate: Number(v.price) || 0 });
+        report.created++;
+        if (importStock && available(v) > 0) opening.push({ sku, qty: available(v), rate: Number(v.inventoryItem.unitCost?.amount) || 0 });
     }
     if (opening.length) {
         // Origin shopify: Shopify already holds these quantities, so nothing is pushed back.
@@ -348,4 +387,4 @@ function startScheduler() {
     log.info(`Shopify order sync every ${cfg.syncMinutes} min`);
 }
 
-module.exports = { listLocations, syncSettings, syncOrders, importCatalogue, drift, pushAbsolute, pushMovementDeltas, pushCountDeltas, startScheduler, idemKey };
+module.exports = { mapVariant, listLocations, syncSettings, syncOrders, importCatalogue, drift, pushAbsolute, pushMovementDeltas, pushCountDeltas, startScheduler, idemKey };

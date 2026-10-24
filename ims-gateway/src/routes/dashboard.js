@@ -14,7 +14,7 @@ router.get('/', wrap(async (req, res) => {
     const since = new Date(Date.now() - (days - 1) * 86400_000);
     const sinceIso = iso(since);
 
-    const [{ rows, settings }, ledger, entries, goldRates] = await Promise.all([
+    const [{ rows }, ledger, entries] = await Promise.all([
         loadCatalogue(erp),
         erp.list('Stock Ledger Entry', {
             fields: ['posting_date', 'item_code', 'actual_qty', 'voucher_type', 'voucher_no'],
@@ -24,7 +24,6 @@ router.get('/', wrap(async (req, res) => {
             fields: ['name', 'posting_date', 'posting_time', 'purpose', 'esme_reason', 'esme_reference', 'esme_sale_value', 'owner', 'docstatus', 'total_incoming_value', 'total_outgoing_value'],
             filters: [['posting_date', '>=', sinceIso], ['docstatus', '=', 1]], orderBy: 'posting_date desc, posting_time desc, creation desc', limit: ALL,
         }),
-        erp.list('Esme Gold Rate', { fields: ['rate_date', 'rate_24k'], orderBy: 'rate_date desc, creation desc', limit: 60 }),
     ]);
 
     const active = rows.filter(r => !r.disabled);
@@ -87,8 +86,6 @@ router.get('/', wrap(async (req, res) => {
             name: e.name, date: e.posting_date, time: String(e.posting_time).slice(0, 5), purpose: e.purpose, reason: e.esme_reason || null,
             reference: e.esme_reference || null, by: e.owner, value: Number(e.esme_sale_value) || Number(e.total_incoming_value || e.total_outgoing_value) || 0,
         })),
-        gold_rate: goldRates.reverse().map(g => ({ date: g.rate_date, rate: Number(g.rate_24k) })),
-        settings: { gold_rate_24k: settings.gold_rate_24k, gold_rate_date: settings.gold_rate_date },
     });
 }));
 
