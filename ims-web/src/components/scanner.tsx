@@ -21,16 +21,30 @@ export function skuFromQr(text: string): string | null {
 
 /** Camera QR scanner. Calls onSku once per distinct code (re-arms after 2.5 s). */
 export function Scanner({ onSku, paused = false, className }: { onSku: (sku: string) => void; paused?: boolean; className?: string }) {
-  const video = useRef<HTMLVideoElement>(null)
+  const host = useRef<HTMLDivElement>(null)
+  const still = useRef<HTMLCanvasElement>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
   const scanner = useRef<QrScanner | null>(null)
+  const started = useRef(false)
+  const pausedRef = useRef(paused)
+  pausedRef.current = paused
   const last = useRef<{ sku: string; at: number }>({ sku: '', at: 0 })
   const cb = useRef(onSku)
   cb.current = onSku
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!video.current) return
-    const s = new QrScanner(video.current, result => {
+    if (!host.current) return
+    // Each scanner gets its own <video>: a previous instance still shutting down (fast remounts, React dev
+    // mode) then can't clear the stream of the new one.
+    const video = document.createElement('video')
+    video.muted = true
+    video.playsInline = true
+    video.className = 'size-full object-cover'
+    host.current.prepend(video)
+    videoRef.current = video
+    let cancelled = false
+    const s = new QrScanner(video, result => {
       const sku = skuFromQr(result.data)
       if (!sku) return
       const now = Date.now()
@@ -40,24 +54,42 @@ export function Scanner({ onSku, paused = false, className }: { onSku: (sku: str
       cb.current(sku)
     }, { preferredCamera: 'environment', highlightScanRegion: true, highlightCodeOutline: true, maxScansPerSecond: 8, returnDetailedScanResult: true })
     scanner.current = s
-    s.start().catch(err => {
+    s.start().then(() => {
+      if (cancelled) return
+      started.current = true
+      if (pausedRef.current) s.pause()
+    }).catch(err => {
+      if (cancelled) return
       setError(
         !window.isSecureContext ? 'The camera needs HTTPS. Open the IMS over https:// or use search instead.'
           : err?.name === 'NotAllowedError' || String(err).includes('denied') ? 'Camera permission was denied. Allow it in the browser settings.'
             : 'No camera found on this device.')
     })
-    return () => { s.stop(); s.destroy(); scanner.current = null }
+    return () => { cancelled = true; started.current = false; s.stop(); s.destroy(); video.remove(); scanner.current = null }
   }, [])
 
   useEffect(() => {
-    if (!scanner.current) return
-    if (paused) scanner.current.pause()
-    else scanner.current.start().catch(() => {})
+    const s = scanner.current
+    if (!s || !started.current) return
+    const v = videoRef.current, c = still.current
+    if (paused) {
+      // Freeze the frame that was scanned, so the camera area shows what was read instead of going black.
+      if (v && c && v.videoWidth) {
+        c.width = v.videoWidth; c.height = v.videoHeight
+        c.getContext('2d')?.drawImage(v, 0, 0)
+        c.style.transform = getComputedStyle(v).transform
+        c.hidden = false
+      }
+      s.pause()
+    } else {
+      if (c) c.hidden = true
+      s.start().catch(() => {})
+    }
   }, [paused])
 
   return (
-    <div className={cn('relative aspect-square w-full overflow-hidden rounded-xl bg-black sm:aspect-video', className)}>
-      <video ref={video} className="size-full object-cover" muted playsInline />
+    <div ref={host} className={cn('relative aspect-square w-full overflow-hidden rounded-xl bg-black sm:aspect-video', className)}>
+      <canvas ref={still} hidden className="absolute inset-0 size-full object-cover" aria-hidden />
       {error && (
         <div className="absolute inset-0 grid place-items-center bg-muted p-6 text-center text-sm text-muted-foreground">
           <div className="space-y-2">
