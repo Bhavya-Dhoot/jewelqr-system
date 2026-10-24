@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Demo build and Vercel link (the CLI keeps its token in .env.local)
+dist-demo
+.vercel
+.env*.local

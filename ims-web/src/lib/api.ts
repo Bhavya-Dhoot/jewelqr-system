@@ -9,24 +9,32 @@ export class ApiError extends Error {
 type Body = Record<string, unknown> | unknown[] | FormData | undefined
 
 async function request<T>(method: string, path: string, body?: Body): Promise<T> {
-  let res: Response
-  try {
-    res = await fetch(`/api${path}`, {
-      method,
-      credentials: 'same-origin',
-      headers: body instanceof FormData || body === undefined ? undefined : { 'Content-Type': 'application/json' },
-      body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body),
-    })
-  } catch {
-    throw new ApiError(0, 'Cannot reach the server. Check your connection.')
+  let status: number
+  let data: { error?: string } | undefined
+  if (import.meta.env.VITE_DEMO) {
+    // Demo build: an in-browser stand-in for the gateway and ERPNext (src/demo), left out of normal builds.
+    ;({ status, data } = (await (await import('@/demo/server')).handle(method, path, body)) as { status: number; data: typeof data })
+  } else {
+    let res: Response
+    try {
+      res = await fetch(`/api${path}`, {
+        method,
+        credentials: 'same-origin',
+        headers: body instanceof FormData || body === undefined ? undefined : { 'Content-Type': 'application/json' },
+        body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body),
+      })
+    } catch {
+      throw new ApiError(0, 'Cannot reach the server. Check your connection.')
+    }
+    status = res.status
+    data = status === 204 ? undefined : await res.json().catch(() => ({}))
   }
-  if (res.status === 204) return undefined as T
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    if (res.status === 401 && !path.startsWith('/auth/') && !path.startsWith('/public/')) {
+  if (status === 204) return undefined as T
+  if (status >= 400) {
+    if (status === 401 && !path.startsWith('/auth/') && !path.startsWith('/public/')) {
       window.dispatchEvent(new Event('ims:unauthorized'))
     }
-    throw new ApiError(res.status, data.error || `Request failed (${res.status})`)
+    throw new ApiError(status, data?.error || `Request failed (${status})`)
   }
   return data as T
 }

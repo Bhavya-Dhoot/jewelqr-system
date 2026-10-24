@@ -55,6 +55,17 @@ Open http://localhost:5173. Demo users created by `--demo`:
 
 ERPNext desk: http://localhost:8085 (`Administrator` / `admin` in development).
 
+## Playable demo
+
+https://esme-ims-demo.vercel.app runs the web app against an in-browser stand-in for the gateway and ERPNext (`ims-web/src/demo`). It uses the same sample catalogue and 30 days of history as `provision.js --demo`, and the same stock rules: moving-average cost per location, no negative stock, cancel to reverse, counts post only the differences. Changes stay in the visitor's browser and **Reset** puts the sample data back. Shopify is not connected. Product photos load from Esme's own Shopify CDN.
+
+Sign in as `manager@esmecrystal.local` / `Manager@Demo2026` or `staff@esmecrystal.local` / `Staff@Demo2026`.
+
+```bash
+npm --prefix ims-web run build:demo      # writes ims-web/dist-demo (normal builds contain no demo code)
+cd ims-web && vercel deploy --prod       # Vercel project esme-ims-demo; vercel.json runs build:demo
+```
+
 ## Production
 
 ```bash

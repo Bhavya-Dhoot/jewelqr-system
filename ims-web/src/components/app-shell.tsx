@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import {
@@ -24,6 +24,8 @@ import { useTheme } from '@/components/theme'
 import { useMe } from '@/hooks/api'
 import { api } from '@/lib/api'
 import type { User } from '@/lib/types'
+
+const DemoBanner = import.meta.env.VITE_DEMO ? lazy(() => import('@/demo/banner')) : null
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboardIcon, end: true },
@@ -168,6 +170,7 @@ export function AppShell() {
             <Button variant="ghost" size="icon" className="hidden sm:inline-flex" onClick={() => setHelpOpen(true)} aria-label="Keyboard shortcuts">
               <KeyboardIcon />
             </Button>
+            {DemoBanner && <Suspense><DemoBanner /></Suspense>}
             <Button variant="ghost" size="icon" className="md:hidden" asChild aria-label="Scan">
               <Link to="/scan"><ScanLineIcon /></Link>
             </Button>

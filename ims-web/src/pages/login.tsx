@@ -14,8 +14,9 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const qc = useQueryClient()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  // The demo build fills in its sample manager account.
+  const [email, setEmail] = useState(import.meta.env.VITE_DEMO ? 'manager@esmecrystal.local' : '')
+  const [password, setPassword] = useState(import.meta.env.VITE_DEMO ? 'Manager@Demo2026' : '')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -44,7 +45,7 @@ export default function LoginPage() {
       <form onSubmit={submit} className="mx-auto w-full max-w-sm space-y-6 py-12">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Sign in to Inventory</h1>
-          <p className="text-sm text-muted-foreground">Use your ERPNext account.</p>
+          <p className="text-sm text-muted-foreground">{import.meta.env.VITE_DEMO ? 'Demo: sign in as the manager, or as staff@esmecrystal.local with Staff@Demo2026.' : 'Use your ERPNext account.'}</p>
         </div>
         <FieldGroup>
           <Field>
